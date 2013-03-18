@@ -147,9 +147,9 @@ sub load_chunk {
 
 sub store_chunk {
     my ($self, $schunk, $pchunk) = @_;
-    
+
     use POSIX ":sys_wait_h";
-    
+
     my $k = $pchunk->inventory_key;
     my $v = $schunk->inventory_value;
 
@@ -161,41 +161,41 @@ sub store_chunk {
     # my $dig = $schunk->backup_digest;
     # my $fh = $schunk->chunkref;
     # my $chunkref = do { local $/; <$fh> };
-    
+
     # Enable this if block to test original non-forking behaviour
     if(!$self->{daemons}) {
-	if($self->_store_chunk($schunk)) {
-	# if($self->_store_chunk($schunk, $dig, $chunkref)) {
-	    $self->add_to_inventory($pchunk, $schunk);
-	    return 1;
-	}
-	else {
-	    return 0;
-	}
+        if($self->_store_chunk($schunk)) {
+        # if($self->_store_chunk($schunk, $dig, $chunkref)) {
+            $self->add_to_inventory($pchunk, $schunk);
+            return 1;
+        }
+        else {
+           return 0;
+        }
     }
-    
+
     # FIXME:
     # Check for a child process already storing $self->chunkpath( $schunk->backup_digest ) but not yet
     # having returned causing the parent to update the inventory.
-    
+
     $self->wait($self->{daemons}-1);
-    
+
     if(my $pid = fork) {
-	$self->{children}->{$pid} = {'schunk' => $schunk, 'pchunk' => $pchunk};
-	# print STDERR "Forked PID $pid for $k => $v\n";
+        $self->{children}->{$pid} = {'schunk' => $schunk, 'pchunk' => $pchunk};
+        # print STDERR "Forked PID $pid for $k => $v\n";
     }
     else {
-	$0 .= " $k => $v";
-	my $C = $self->_store_chunk($schunk) ? 0 : -1;
-	# my $C = $self->_store_chunk($schunk, $dig, $chunkref) ? 0 : -1;
-	# print STDERR "Child PID $$ for $k => $v EXITING CODE $C\n";
-	
-	# See http://perldoc.perl.org/perlfork.html
-	# On some operating systems, notably Solaris and Unixware, calling exit()
-	# from a child process will flush and close open filehandles in the parent,
-	# thereby corrupting the filehandles. On these systems, calling _exit() is
-	# suggested instead.
-	_exit($C);
+        $0 .= " $k => $v";
+        my $C = $self->_store_chunk($schunk) ? 0 : -1;
+        # my $C = $self->_store_chunk($schunk, $dig, $chunkref) ? 0 : -1;
+        # print STDERR "Child PID $$ for $k => $v EXITING CODE $C\n";
+
+        # See http://perldoc.perl.org/perlfork.html
+        # On some operating systems, notably Solaris and Unixware, calling exit()
+        # from a child process will flush and close open filehandles in the parent,
+        # thereby corrupting the filehandles. On these systems, calling _exit() is
+        # suggested instead.
+        _exit($C);
     }
 
     return 1;
@@ -204,40 +204,40 @@ sub store_chunk {
 sub wait {
     my $self = shift;
     my $maxkids = shift;
-    
+
     while( scalar( keys %{ $self->{'children'} } ) > $maxkids ) {
-	# print STDERR "Waiting for PIDs " . join(' ', sort keys %{ $self->{'children'} }) . "\n";
-	if(my $pid = wait) {
-	    # print STDERR "Got PID $pid\n";
-	    if($pid != -1 && $self->{children}->{$pid}) {
-		if($? == 0) {
-		    # print STDERR "For PID $pid for " . $self->{children}->{$pid}->{pchunk}->inventory_key . " => " . $self->{children}->{$pid}->{schunk}->inventory_value .
-		    #   " RETURNED TRUE\n";
-		    $self->add_to_inventory($self->{children}->{$pid}->{pchunk} => $self->{children}->{$pid}->{schunk});
-		}
-		delete $self->{children}->{$pid};
-	    }
-	}
+        # print STDERR "Waiting for PIDs " . join(' ', sort keys %{ $self->{'children'} }) . "\n";
+        if(my $pid = wait) {
+            # print STDERR "Got PID $pid\n";
+            if($pid != -1 && $self->{children}->{$pid}) {
+                if($? == 0) {
+                    # print STDERR "For PID $pid for " . $self->{children}->{$pid}->{pchunk}->inventory_key . " => " . $self->{children}->{$pid}->{schunk}->inventory_value .
+                    #   " RETURNED TRUE\n";
+                    $self->add_to_inventory($self->{children}->{$pid}->{pchunk} => $self->{children}->{$pid}->{schunk});
+                }
+                delete $self->{children}->{$pid};
+            }
+        }
     }
 }
-    
+
 sub _store_chunk {
     my ($self, $chunk) = @_;
     # my ($self, $chunk, $dig, $chunkref) = @_;
     my $dig = $chunk->backup_digest;
     my $fh = $chunk->chunkref;
     my $chunkref = do { local $/; <$fh> };
-    
+
     my $try = sub {
         eval {
-	    my $bucket = $self->{s3}->bucket($self->{chunk_bucket});
+            my $bucket = $self->{s3}->bucket($self->{chunk_bucket});
             my $r = $bucket->add_key(
-		$self->chunkpath($dig),
-		$chunkref,
+                $self->chunkpath($dig),
+                $chunkref,
                 { content_type  => 'x-danga/brackup-chunk' }
             );
-	    # print STDERR "_store_chunk returned $r\n";
-	    return $r;
+            # print STDERR "_store_chunk returned $r\n";
+            return $r;
         };
     };
 
@@ -271,18 +271,18 @@ sub chunks {
 
     my $chunks = $self->{s3}->list_bucket_all({ bucket => $self->{chunk_bucket} });
     my $prefix = $self->{chunk_path_prefix};
-    
+
     return grep { $_ } map { $_->{key} =~ m!^\Q$prefix\E(.*)$! ? $1 : ''; } @{ $chunks->{keys} };
 }
 
 sub store_backup_meta {
     my ($self, $name, $fh, $meta) = @_;
-    
+
     $name = $self->{backup_prefix} . "-" . $name if defined $self->{backup_prefix};
 
-    eval { 
+    eval {
         my $bucket = $self->{s3}->bucket($self->{backup_bucket});
-	# print "STORE BACKUP META: $name, $meta->{filename} with name ", $self->backuppath($name),"\n";
+        # print "STORE BACKUP META: $name, $meta->{filename} with name ", $self->backuppath($name),"\n";
         $bucket->add_key_filename(
             $self->backuppath($name),
             $meta->{filename},
@@ -299,9 +299,9 @@ sub backups {
     my $backups = $self->{s3}->list_bucket_all({ bucket => $self->{backup_bucket} });
     my $prefix = $self->{backup_path_prefix};
     foreach my $backup (@{ $backups->{keys} }) {
-	my $key = $backup->{key} =~ m!^\Q$prefix\E(.*)$! ? $1 : '';
-	next unless $key;
-	
+        my $key = $backup->{key} =~ m!^\Q$prefix\E(.*)$! ? $1 : '';
+        next unless $key;
+
         my $iso8601 = DateTime::Format::ISO8601->parse_datetime( $backup->{last_modified} );
         push @ret, Brackup::TargetBackupStatInfo->new($self, $key,
                                                       time => $iso8601->epoch,
@@ -318,7 +318,7 @@ sub get_backup {
     my $val = $bucket->get_key($self->backuppath($name))
         or return 0;
 
-	$output_file ||= "$name.brackup";
+    $output_file ||= "$name.brackup";
     open(my $out, ">$output_file") or die "Failed to open $output_file: $!\n";
     my $outv = syswrite($out, $val->{value});
     die "download/write error" unless $outv == do { use bytes; length $val->{value} };
