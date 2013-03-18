@@ -265,7 +265,6 @@ sub backup {
                 $self->debug_more("    * storing ... \n");
                 $target->store_chunk($schunk, $pchunk)
                     or die "Chunk storage failed.\n";
-                # $target->add_to_inventory($pchunk => $schunk);
                 $self->debug_more("    * chunk stored\n");
             }
 
@@ -299,7 +298,7 @@ sub backup {
         $pchunk->forget_chunkref;
     }
     
-    $target->wait(0);
+    $target->wait_for_kids(0);
     
     $end_file->();
     $comp_chunk->finalize if $comp_chunk;

@@ -153,16 +153,6 @@ sub store_chunk {
     my $k = $pchunk->inventory_key;
     my $v = $schunk->inventory_value;
 
-    # FIXME:
-    # I'm unsure if it matters that $fh is advanced in the child not the parent - does the parent rely on $fh moving forwards?
-    # If so, easy alternative implementation: set these variables here, and pass them into _store_chunk
-    # instead of obtaining them within the child.
-    # 
-    # my $dig = $schunk->backup_digest;
-    # my $fh = $schunk->chunkref;
-    # my $chunkref = do { local $/; <$fh> };
-
-    # Enable this if block to test original non-forking behaviour
     if(!$self->{daemons}) {
         if($self->_store_chunk($schunk)) {
         # if($self->_store_chunk($schunk, $dig, $chunkref)) {
@@ -178,17 +168,14 @@ sub store_chunk {
     # Check for a child process already storing $self->chunkpath( $schunk->backup_digest ) but not yet
     # having returned causing the parent to update the inventory.
 
-    $self->wait($self->{daemons}-1);
+    $self->wait_for_kids($self->{daemons}-1);
 
     if(my $pid = fork) {
         $self->{children}->{$pid} = {'schunk' => $schunk, 'pchunk' => $pchunk};
-        # print STDERR "Forked PID $pid for $k => $v\n";
     }
     else {
         $0 .= " $k => $v";
         my $C = $self->_store_chunk($schunk) ? 0 : -1;
-        # my $C = $self->_store_chunk($schunk, $dig, $chunkref) ? 0 : -1;
-        # print STDERR "Child PID $$ for $k => $v EXITING CODE $C\n";
 
         # See http://perldoc.perl.org/perlfork.html
         # On some operating systems, notably Solaris and Unixware, calling exit()
@@ -201,23 +188,13 @@ sub store_chunk {
     return 1;
 }
 
-sub wait {
+sub wait_found_kid {
     my $self = shift;
-    my $maxkids = shift;
+    my $pid = shift;
+    my $code = shift;
 
-    while( scalar( keys %{ $self->{'children'} } ) > $maxkids ) {
-        # print STDERR "Waiting for PIDs " . join(' ', sort keys %{ $self->{'children'} }) . "\n";
-        if(my $pid = wait) {
-            # print STDERR "Got PID $pid\n";
-            if($pid != -1 && $self->{children}->{$pid}) {
-                if($? == 0) {
-                    # print STDERR "For PID $pid for " . $self->{children}->{$pid}->{pchunk}->inventory_key . " => " . $self->{children}->{$pid}->{schunk}->inventory_value .
-                    #   " RETURNED TRUE\n";
-                    $self->add_to_inventory($self->{children}->{$pid}->{pchunk} => $self->{children}->{$pid}->{schunk});
-                }
-                delete $self->{children}->{$pid};
-            }
-        }
+    if($code == 0) {
+	$self->add_to_inventory($self->{children}->{$pid}->{pchunk} => $self->{children}->{$pid}->{schunk});
     }
 }
 
@@ -236,7 +213,6 @@ sub _store_chunk {
                 $chunkref,
                 { content_type  => 'x-danga/brackup-chunk' }
             );
-            # print STDERR "_store_chunk returned $r\n";
             return $r;
         };
     };
@@ -283,14 +259,13 @@ sub store_backup_meta {
 
     eval {
         my $bucket = $self->{s3}->bucket($self->{backup_bucket});
-        # print "STORE BACKUP META: $name, $meta->{filename} with name ", $self->backuppath($name),"\n";
         $bucket->add_key_filename(
             $self->backuppath($name),
             $meta->{filename},
             { content_type => 'x-danga/brackup-meta' },
          );
     };
-    if($@) { print STDERR "Error: $@\n"; }
+    if($@) { die "Failed to store backup meta file: $@"; }
 }
 
 sub backups {

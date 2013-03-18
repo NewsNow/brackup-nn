@@ -129,6 +129,27 @@ sub delete_backup {
     die "ERROR: delete_backup method not implemented in sub-class $self";
 }
 
+# waits for excess child processes to die, catches them and calls the reaper
+sub wait_for_kids {
+    my $self = shift;
+    my $maxkids = shift;
+    
+    while( scalar( keys %{ $self->{'children'} } ) > $maxkids ) {
+	if(my $pid = wait) {
+	    if($pid != -1 && $self->{children}->{$pid}) {
+		$self->wait_found_kid($pid, $?);
+		delete $self->{children}->{$pid};
+	    }
+	}
+    }
+}
+
+# processes reaped child
+sub wait_found_kid {
+    my ($self, $name) = @_;
+    die "ERROR: wait_found_kid method not implemented in sub-class $self";
+}
+
 # removes old metafiles from this target
 sub prune {
     my ($self, %opt) = @_;
@@ -212,7 +233,7 @@ sub gc {
     my ($self, %opt) = @_;
 
     # get all chunks and then loop through metafiles to detect
-    # referenced ones
+    # referenced ones
     my %chunks = map {$_ => 1} $self->chunks;
     
     my $total_chunks = scalar keys %chunks;
