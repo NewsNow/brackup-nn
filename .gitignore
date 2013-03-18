@@ -1,3 +1,9 @@
+*~
+*.bak
+*.o
+*.so
+*.version
+*.orig
 blib/
 .build/
 _build/

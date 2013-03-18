@@ -1,0 +1,65 @@
+K 25
+svn:wc:ra_dav:version-url
+V 46
+/svn/!svn/ver/338/trunk/t/data-weird-filenames
+END
+pubring-test.gpg
+K 25
+svn:wc:ra_dav:version-url
+V 63
+/svn/!svn/ver/259/trunk/t/data-weird-filenames/pubring-test.gpg
+END
+secring-test.gpg
+K 25
+svn:wc:ra_dav:version-url
+V 63
+/svn/!svn/ver/259/trunk/t/data-weird-filenames/secring-test.gpg
+END
+huge-file.txt
+K 25
+svn:wc:ra_dav:version-url
+V 60
+/svn/!svn/ver/259/trunk/t/data-weird-filenames/huge-file.txt
+END
+000-dup1.txt
+K 25
+svn:wc:ra_dav:version-url
+V 59
+/svn/!svn/ver/259/trunk/t/data-weird-filenames/000-dup1.txt
+END
+000-dup2.txt
+K 25
+svn:wc:ra_dav:version-url
+V 59
+/svn/!svn/ver/259/trunk/t/data-weird-filenames/000-dup2.txt
+END
+filename_trailing_whitespace   
+K 25
+svn:wc:ra_dav:version-url
+V 84
+/svn/!svn/ver/259/trunk/t/data-weird-filenames/filename_trailing_whitespace%20%20%20
+END
+test-file.txt
+K 25
+svn:wc:ra_dav:version-url
+V 60
+/svn/!svn/ver/259/trunk/t/data-weird-filenames/test-file.txt
+END
+ugly_symlink_target
+K 25
+svn:wc:ra_dav:version-url
+V 66
+/svn/!svn/ver/338/trunk/t/data-weird-filenames/ugly_symlink_target
+END
+filename whitespace
+K 25
+svn:wc:ra_dav:version-url
+V 68
+/svn/!svn/ver/259/trunk/t/data-weird-filenames/filename%20whitespace
+END
+my-link.txt
+K 25
+svn:wc:ra_dav:version-url
+V 58
+/svn/!svn/ver/259/trunk/t/data-weird-filenames/my-link.txt
+END

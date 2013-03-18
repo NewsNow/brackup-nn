@@ -1,0 +1,174 @@
+#!/usr/bin/perl
+
+# TODO: onerror=prompt?
+
+=head1 NAME
+
+brackup-restore - The brackup restore tool.
+
+=head1 SYNOPSIS
+
+ $ brackup-restore [-v] --from=foo.brackup --to=<base_directory> --all
+ $ brackup-restore [-v] --from=foo.brackup --to=<base_directory> --just=<file>
+ $ brackup-restore [-v] --from=foo.brackup --to=<base_directory> --just=<dir>
+
+=head2 OPTIONS
+
+=over 4
+
+=item --from=NAME
+
+Required.  The backup metafile, describing the tree you want to restore.  
+Probably named like "source-target-YYYYMMDD.brackup".  If you lost it, 
+it's also stored on your backup target, and you can fetch it with
+L<brackup-target>.
+
+=item --to=NAME
+
+Required.  The destination root directory for your restored files.
+Will be created if it doesn't exist.
+
+=item --all
+
+Restore all files.
+
+=item --just="DIRECTORY"
+
+Restore just the directory named (and all its contents). 
+
+=item --just="FILE"
+
+Restore just the file named.
+
+=item --onerror=abort|continue
+
+How to handle restore errors. 'abort' reports and stops as soon as an
+error is detected. 'continue' continues with the restore, collecting all
+errors and reporting them at the end of the restore.
+
+Default: abort.
+
+=item --conflict=abort|skip|overwrite|update
+
+How to handle files that already exist (with size > zero bytes). 
+'skip' means don't restore, keeping the existing file. 'overwrite'
+means always restore, replacing the existing file. 'update' means
+overwrite iff the file we are restoring is newer than the existing one.
+
+Default: abort.
+
+=item --config=NAME
+
+Brackup config file to use instead of default.
+
+=item --verbose|-v
+
+Show more info during restore.
+
+=back
+
+=head1 WARRANTY
+
+Brackup is distributed as-is and comes without warranty of any kind,
+expressed or implied.  We aren't responsible for your data loss.
+
+=head1 AUTHOR
+
+Brad Fitzpatrick E<lt>brad@danga.comE<gt>
+
+Copyright (c) 2006-2007 Six Apart, Ltd. All rights reserved.
+
+This module is free software. You may use, modify, and/or redistribute this
+software under the terms of same terms as perl itself.
+
+=cut
+
+use strict;
+use warnings;
+use Getopt::Long;
+use File::Path;
+use Try::Tiny;
+
+use FindBin qw($Bin);
+use lib "$Bin/lib";
+
+use Brackup;
+use Brackup::Util qw(tempfile);
+
+my ($opt_verbose, $meta_file, $opt_help, $restore_dir, $opt_all, $prefix, $config_file);
+my $onerror  = 'abort';
+my $conflict = 'abort';
+
+usage() unless
+    GetOptions(
+               'from=s'             => \$meta_file,
+               'to=s'               => \$restore_dir,
+               'verbose'            => \$opt_verbose,
+               'help'               => \$opt_help,
+               'all'                => \$opt_all,
+               'just=s'             => \$prefix,
+               'onerror|on-error=s' => \$onerror,
+               'conflict=s'         => \$conflict,
+               'config=s'           => \$config_file,
+               );
+
+if ($opt_help) {
+    eval "use Pod::Usage;";
+    Pod::Usage::pod2usage( -verbose => 1, -exitval => 0 );
+    exit 0;
+}
+
+usage() unless $meta_file && $restore_dir && ($prefix || $opt_all);
+usage("Backup metafile '$meta_file' doesn't exist")  unless -e $meta_file;
+usage("Backup metafile '$meta_file' isn't a file")   unless -f $meta_file;
+usage("Restore directory '$restore_dir' isn't a directory") if -e $restore_dir && ! -d $restore_dir;
+usage("Config file '$config_file' doesn't exist")    if $config_file && ! -f $config_file;
+usage("Invalid --onerror option '$onerror' (not abort|continue)")
+    if $onerror !~ m/^(abort|continue)$/;
+usage("Invalid --conflict option '$conflict' (not abort|skip|overwrite|update)")
+    if $conflict !~ m/^(abort|skip|overwrite|update)$/;
+$prefix ||= "";  # with -all, "", which means everything
+
+if (! -e $restore_dir) {
+    mkpath($restore_dir, 0, 0700) or die "Cannot create restore directory: $!";
+}
+
+$config_file ||= Brackup::Config->default_config_file_name;
+my $config = Brackup::Config->load($config_file) if -f $config_file;
+
+my $restore = Brackup::Restore->new(
+                                    to          => $restore_dir,
+                                    prefix      => $prefix,
+                                    file        => $meta_file,
+                                    config      => $config,
+                                    onerror     => $onerror,
+                                    conflict    => $conflict,
+                                    verbose     => $opt_verbose,
+                                    );
+
+try {
+    $restore->restore;
+    warn "Restore complete.\n" if $opt_verbose;
+    exit 0;
+} catch {
+    if (ref $_ and ref $_ eq 'ARRAY') {
+        warn "Restore complete.\n" if $opt_verbose;
+        warn "\n*** Errors encountered doing restore ***\n" . join('', @$_) . "\n";
+    }
+    else {
+        chomp $_;
+        warn "Error doing restore: $_\n";
+    }
+    exit 1;
+};
+
+
+sub usage {
+    my $why = shift || "";
+    if ($why) {
+        $why =~ s/\s+$//;
+        $why = "Error: $why\n\n";
+    }
+    die "${why}brackup-restore [-v] --from=[metafile.brackup] --to=[restore_dir] <--all|--just=[what]>\nbrackup-restore --help\n";
+
+}

@@ -1,0 +1,29 @@
+K 25
+svn:wc:ra_dav:version-url
+V 40
+/svn/!svn/ver/296/trunk/lib/Brackup/Dict
+END
+Null.pm
+K 25
+svn:wc:ra_dav:version-url
+V 48
+/svn/!svn/ver/290/trunk/lib/Brackup/Dict/Null.pm
+END
+SQLite.pm
+K 25
+svn:wc:ra_dav:version-url
+V 50
+/svn/!svn/ver/296/trunk/lib/Brackup/Dict/SQLite.pm
+END
+DBM.pm
+K 25
+svn:wc:ra_dav:version-url
+V 47
+/svn/!svn/ver/296/trunk/lib/Brackup/Dict/DBM.pm
+END
+SQLite2.pm
+K 25
+svn:wc:ra_dav:version-url
+V 51
+/svn/!svn/ver/296/trunk/lib/Brackup/Dict/SQLite2.pm
+END

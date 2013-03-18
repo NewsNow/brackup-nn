@@ -1,0 +1,89 @@
+K 25
+svn:wc:ra_dav:version-url
+V 23
+/svn/!svn/ver/364/trunk
+END
+makedocs.pl
+K 25
+svn:wc:ra_dav:version-url
+V 35
+/svn/!svn/ver/136/trunk/makedocs.pl
+END
+brackup-verify-chunks
+K 25
+svn:wc:ra_dav:version-url
+V 45
+/svn/!svn/ver/356/trunk/brackup-verify-chunks
+END
+brackup-verify-inventory
+K 25
+svn:wc:ra_dav:version-url
+V 48
+/svn/!svn/ver/360/trunk/brackup-verify-inventory
+END
+HACKING
+K 25
+svn:wc:ra_dav:version-url
+V 31
+/svn/!svn/ver/196/trunk/HACKING
+END
+TODO
+K 25
+svn:wc:ra_dav:version-url
+V 28
+/svn/!svn/ver/200/trunk/TODO
+END
+MANIFEST
+K 25
+svn:wc:ra_dav:version-url
+V 32
+/svn/!svn/ver/356/trunk/MANIFEST
+END
+brackup-mount
+K 25
+svn:wc:ra_dav:version-url
+V 37
+/svn/!svn/ver/186/trunk/brackup-mount
+END
+Makefile.PL
+K 25
+svn:wc:ra_dav:version-url
+V 35
+/svn/!svn/ver/356/trunk/Makefile.PL
+END
+brackup
+K 25
+svn:wc:ra_dav:version-url
+V 31
+/svn/!svn/ver/362/trunk/brackup
+END
+brackup-restore
+K 25
+svn:wc:ra_dav:version-url
+V 39
+/svn/!svn/ver/353/trunk/brackup-restore
+END
+Changes
+K 25
+svn:wc:ra_dav:version-url
+V 31
+/svn/!svn/ver/355/trunk/Changes
+END
+brackup-target
+K 25
+svn:wc:ra_dav:version-url
+V 38
+/svn/!svn/ver/362/trunk/brackup-target
+END
+MANIFEST.SKIP
+K 25
+svn:wc:ra_dav:version-url
+V 37
+/svn/!svn/ver/306/trunk/MANIFEST.SKIP
+END
+.shipit
+K 25
+svn:wc:ra_dav:version-url
+V 31
+/svn/!svn/ver/233/trunk/.shipit
+END

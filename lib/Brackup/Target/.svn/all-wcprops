@@ -1,0 +1,53 @@
+K 25
+svn:wc:ra_dav:version-url
+V 42
+/svn/!svn/ver/326/trunk/lib/Brackup/Target
+END
+Filesystem.pm
+K 25
+svn:wc:ra_dav:version-url
+V 56
+/svn/!svn/ver/281/trunk/lib/Brackup/Target/Filesystem.pm
+END
+Amazon.pm
+K 25
+svn:wc:ra_dav:version-url
+V 52
+/svn/!svn/ver/319/trunk/lib/Brackup/Target/Amazon.pm
+END
+Riak.pm
+K 25
+svn:wc:ra_dav:version-url
+V 50
+/svn/!svn/ver/326/trunk/lib/Brackup/Target/Riak.pm
+END
+Ftp.pm
+K 25
+svn:wc:ra_dav:version-url
+V 49
+/svn/!svn/ver/281/trunk/lib/Brackup/Target/Ftp.pm
+END
+CloudFiles.pm
+K 25
+svn:wc:ra_dav:version-url
+V 56
+/svn/!svn/ver/281/trunk/lib/Brackup/Target/CloudFiles.pm
+END
+Sftp.pm
+K 25
+svn:wc:ra_dav:version-url
+V 50
+/svn/!svn/ver/307/trunk/lib/Brackup/Target/Sftp.pm
+END
+Filebased.pm
+K 25
+svn:wc:ra_dav:version-url
+V 55
+/svn/!svn/ver/178/trunk/lib/Brackup/Target/Filebased.pm
+END
+GoogleAppEngine.pm
+K 25
+svn:wc:ra_dav:version-url
+V 61
+/svn/!svn/ver/281/trunk/lib/Brackup/Target/GoogleAppEngine.pm
+END

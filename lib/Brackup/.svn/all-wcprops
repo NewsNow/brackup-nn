@@ -1,0 +1,149 @@
+K 25
+svn:wc:ra_dav:version-url
+V 35
+/svn/!svn/ver/364/trunk/lib/Brackup
+END
+Backup.pm
+K 25
+svn:wc:ra_dav:version-url
+V 45
+/svn/!svn/ver/357/trunk/lib/Brackup/Backup.pm
+END
+Config.pm
+K 25
+svn:wc:ra_dav:version-url
+V 45
+/svn/!svn/ver/364/trunk/lib/Brackup/Config.pm
+END
+PositionedChunk.pm
+K 25
+svn:wc:ra_dav:version-url
+V 54
+/svn/!svn/ver/309/trunk/lib/Brackup/PositionedChunk.pm
+END
+Decrypt.pm
+K 25
+svn:wc:ra_dav:version-url
+V 46
+/svn/!svn/ver/358/trunk/lib/Brackup/Decrypt.pm
+END
+GPGProcess.pm
+K 25
+svn:wc:ra_dav:version-url
+V 49
+/svn/!svn/ver/282/trunk/lib/Brackup/GPGProcess.pm
+END
+Util.pm
+K 25
+svn:wc:ra_dav:version-url
+V 43
+/svn/!svn/ver/342/trunk/lib/Brackup/Util.pm
+END
+File.pm
+K 25
+svn:wc:ra_dav:version-url
+V 43
+/svn/!svn/ver/345/trunk/lib/Brackup/File.pm
+END
+Test.pm
+K 25
+svn:wc:ra_dav:version-url
+V 43
+/svn/!svn/ver/346/trunk/lib/Brackup/Test.pm
+END
+InventoryDatabase.pm
+K 25
+svn:wc:ra_dav:version-url
+V 56
+/svn/!svn/ver/301/trunk/lib/Brackup/InventoryDatabase.pm
+END
+ChunkIterator.pm
+K 25
+svn:wc:ra_dav:version-url
+V 51
+/svn/!svn/ver/98/trunk/lib/Brackup/ChunkIterator.pm
+END
+Root.pm
+K 25
+svn:wc:ra_dav:version-url
+V 43
+/svn/!svn/ver/363/trunk/lib/Brackup/Root.pm
+END
+Restore.pm
+K 25
+svn:wc:ra_dav:version-url
+V 46
+/svn/!svn/ver/353/trunk/lib/Brackup/Restore.pm
+END
+DecryptedFile.pm
+K 25
+svn:wc:ra_dav:version-url
+V 52
+/svn/!svn/ver/239/trunk/lib/Brackup/DecryptedFile.pm
+END
+BackupStats.pm
+K 25
+svn:wc:ra_dav:version-url
+V 50
+/svn/!svn/ver/352/trunk/lib/Brackup/BackupStats.pm
+END
+TargetBackupStatInfo.pm
+K 25
+svn:wc:ra_dav:version-url
+V 59
+/svn/!svn/ver/210/trunk/lib/Brackup/TargetBackupStatInfo.pm
+END
+Target.pm
+K 25
+svn:wc:ra_dav:version-url
+V 45
+/svn/!svn/ver/361/trunk/lib/Brackup/Target.pm
+END
+Metafile.pm
+K 25
+svn:wc:ra_dav:version-url
+V 47
+/svn/!svn/ver/302/trunk/lib/Brackup/Metafile.pm
+END
+StoredChunk.pm
+K 25
+svn:wc:ra_dav:version-url
+V 50
+/svn/!svn/ver/309/trunk/lib/Brackup/StoredChunk.pm
+END
+ConfigSection.pm
+K 25
+svn:wc:ra_dav:version-url
+V 52
+/svn/!svn/ver/287/trunk/lib/Brackup/ConfigSection.pm
+END
+CompositeChunk.pm
+K 25
+svn:wc:ra_dav:version-url
+V 53
+/svn/!svn/ver/282/trunk/lib/Brackup/CompositeChunk.pm
+END
+GPGProcManager.pm
+K 25
+svn:wc:ra_dav:version-url
+V 53
+/svn/!svn/ver/292/trunk/lib/Brackup/GPGProcManager.pm
+END
+Webhook.pm
+K 25
+svn:wc:ra_dav:version-url
+V 46
+/svn/!svn/ver/351/trunk/lib/Brackup/Webhook.pm
+END
+Mount.pm
+K 25
+svn:wc:ra_dav:version-url
+V 44
+/svn/!svn/ver/282/trunk/lib/Brackup/Mount.pm
+END
+DigestCache.pm
+K 25
+svn:wc:ra_dav:version-url
+V 50
+/svn/!svn/ver/286/trunk/lib/Brackup/DigestCache.pm
+END

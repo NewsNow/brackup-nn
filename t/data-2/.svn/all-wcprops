@@ -1,0 +1,71 @@
+K 25
+svn:wc:ra_dav:version-url
+V 32
+/svn/!svn/ver/336/trunk/t/data-2
+END
+pubring-test.gpg
+K 25
+svn:wc:ra_dav:version-url
+V 49
+/svn/!svn/ver/310/trunk/t/data-2/pubring-test.gpg
+END
+pubring-test2.gpg
+K 25
+svn:wc:ra_dav:version-url
+V 50
+/svn/!svn/ver/310/trunk/t/data-2/pubring-test2.gpg
+END
+secring-test.gpg
+K 25
+svn:wc:ra_dav:version-url
+V 49
+/svn/!svn/ver/303/trunk/t/data-2/secring-test.gpg
+END
+000-dup1.txt
+K 25
+svn:wc:ra_dav:version-url
+V 45
+/svn/!svn/ver/303/trunk/t/data-2/000-dup1.txt
+END
+000-dup2.txt
+K 25
+svn:wc:ra_dav:version-url
+V 45
+/svn/!svn/ver/303/trunk/t/data-2/000-dup2.txt
+END
+secring-test2.gpg
+K 25
+svn:wc:ra_dav:version-url
+V 50
+/svn/!svn/ver/310/trunk/t/data-2/secring-test2.gpg
+END
+gzip.txt.gz
+K 25
+svn:wc:ra_dav:version-url
+V 44
+/svn/!svn/ver/304/trunk/t/data-2/gzip.txt.gz
+END
+test-file.txt
+K 25
+svn:wc:ra_dav:version-url
+V 46
+/svn/!svn/ver/303/trunk/t/data-2/test-file.txt
+END
+readonly.txt
+K 25
+svn:wc:ra_dav:version-url
+V 45
+/svn/!svn/ver/336/trunk/t/data-2/readonly.txt
+END
+README
+K 25
+svn:wc:ra_dav:version-url
+V 39
+/svn/!svn/ver/303/trunk/t/data-2/README
+END
+my-link.txt
+K 25
+svn:wc:ra_dav:version-url
+V 44
+/svn/!svn/ver/303/trunk/t/data-2/my-link.txt
+END

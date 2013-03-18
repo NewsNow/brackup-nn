@@ -1,0 +1,47 @@
+K 25
+svn:wc:ra_dav:version-url
+V 27
+/svn/!svn/ver/283/trunk/doc
+END
+exampleconfig.txt
+K 25
+svn:wc:ra_dav:version-url
+V 43
+/svn/!svn/ver/4/trunk/doc/exampleconfig.txt
+END
+todo.txt
+K 25
+svn:wc:ra_dav:version-url
+V 36
+/svn/!svn/ver/176/trunk/doc/todo.txt
+END
+overview.txt
+K 25
+svn:wc:ra_dav:version-url
+V 40
+/svn/!svn/ver/176/trunk/doc/overview.txt
+END
+databases.txt
+K 25
+svn:wc:ra_dav:version-url
+V 40
+/svn/!svn/ver/89/trunk/doc/databases.txt
+END
+design-decisions.txt
+K 25
+svn:wc:ra_dav:version-url
+V 48
+/svn/!svn/ver/183/trunk/doc/design-decisions.txt
+END
+notes.txt
+K 25
+svn:wc:ra_dav:version-url
+V 37
+/svn/!svn/ver/176/trunk/doc/notes.txt
+END
+data-structures.txt
+K 25
+svn:wc:ra_dav:version-url
+V 47
+/svn/!svn/ver/283/trunk/doc/data-structures.txt
+END

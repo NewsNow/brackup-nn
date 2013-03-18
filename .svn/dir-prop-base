@@ -1,0 +1,15 @@
+K 10
+svn:ignore
+V 114
+blib
+Makefile
+Makefile.old
+pm_to_blib
+svn-commit*
+*.diff
+MANIFEST.bak
+.brackup-digest.db
+*-2007*.brackup
+META.yml
+
+END

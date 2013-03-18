@@ -1,0 +1,17 @@
+K 25
+svn:wc:ra_dav:version-url
+V 47
+/svn/!svn/ver/303/trunk/t/data-2/my_dir/sub_dir
+END
+program.sh
+K 25
+svn:wc:ra_dav:version-url
+V 58
+/svn/!svn/ver/303/trunk/t/data-2/my_dir/sub_dir/program.sh
+END
+another-file.txt
+K 25
+svn:wc:ra_dav:version-url
+V 64
+/svn/!svn/ver/303/trunk/t/data-2/my_dir/sub_dir/another-file.txt
+END

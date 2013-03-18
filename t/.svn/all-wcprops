@@ -1,0 +1,101 @@
+K 25
+svn:wc:ra_dav:version-url
+V 25
+/svn/!svn/ver/352/trunk/t
+END
+06-config-inheritance.t
+K 25
+svn:wc:ra_dav:version-url
+V 49
+/svn/!svn/ver/289/trunk/t/06-config-inheritance.t
+END
+08-stats.t
+K 25
+svn:wc:ra_dav:version-url
+V 36
+/svn/!svn/ver/352/trunk/t/08-stats.t
+END
+04-gc-sftp.t
+K 25
+svn:wc:ra_dav:version-url
+V 38
+/svn/!svn/ver/299/trunk/t/04-gc-sftp.t
+END
+05-filename-escaping.t
+K 25
+svn:wc:ra_dav:version-url
+V 48
+/svn/!svn/ver/308/trunk/t/05-filename-escaping.t
+END
+02-gpg.t
+K 25
+svn:wc:ra_dav:version-url
+V 34
+/svn/!svn/ver/310/trunk/t/02-gpg.t
+END
+03-composite-sftp.t
+K 25
+svn:wc:ra_dav:version-url
+V 45
+/svn/!svn/ver/308/trunk/t/03-composite-sftp.t
+END
+04-gc-filesystem.t
+K 25
+svn:wc:ra_dav:version-url
+V 44
+/svn/!svn/ver/299/trunk/t/04-gc-filesystem.t
+END
+01-backup-sftp.t
+K 25
+svn:wc:ra_dav:version-url
+V 42
+/svn/!svn/ver/294/trunk/t/01-backup-sftp.t
+END
+04-gc-ftp.t
+K 25
+svn:wc:ra_dav:version-url
+V 37
+/svn/!svn/ver/299/trunk/t/04-gc-ftp.t
+END
+03-composite-filesystem.t
+K 25
+svn:wc:ra_dav:version-url
+V 51
+/svn/!svn/ver/308/trunk/t/03-composite-filesystem.t
+END
+01-backup-filesystem.t
+K 25
+svn:wc:ra_dav:version-url
+V 48
+/svn/!svn/ver/294/trunk/t/01-backup-filesystem.t
+END
+07-restore-conflict.t
+K 25
+svn:wc:ra_dav:version-url
+V 47
+/svn/!svn/ver/335/trunk/t/07-restore-conflict.t
+END
+01-backup-riak.t
+K 25
+svn:wc:ra_dav:version-url
+V 42
+/svn/!svn/ver/318/trunk/t/01-backup-riak.t
+END
+03-composite-ftp.t
+K 25
+svn:wc:ra_dav:version-url
+V 44
+/svn/!svn/ver/308/trunk/t/03-composite-ftp.t
+END
+00-use.t
+K 25
+svn:wc:ra_dav:version-url
+V 33
+/svn/!svn/ver/80/trunk/t/00-use.t
+END
+01-backup-ftp.t
+K 25
+svn:wc:ra_dav:version-url
+V 41
+/svn/!svn/ver/294/trunk/t/01-backup-ftp.t
+END
