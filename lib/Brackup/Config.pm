@@ -170,13 +170,6 @@ sub load_root {
         $root->ignore($pat);
     }
 
-    # common things to ignore
-    $root->ignore(qr!~$!);
-    $root->ignore(qr!^\.thumbnails/!);
-    $root->ignore(qr!^\.kde/share/thumbnails/!);
-    $root->ignore(qr!^\.ee/minis/!);
-    $root->ignore(qr!^\.(gqview|nautilus)/thumbnails/!);
-
     # abort if the user had any configuration we didn't understand
     if (my @keys = $conf->unused_config) {
         die "Aborting, unknown configuration keys in SOURCE:$name: @keys\n";
