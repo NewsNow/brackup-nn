@@ -51,7 +51,7 @@ sub new {
     $self->_common_s3_init;
 
     my $s3      = $self->{s3};
-    
+
     my $buckets = $s3->buckets or die "Failed to get bucket list";
 
     unless (grep { $_->{bucket} eq $self->{chunk_bucket} } @{ $buckets->{buckets} }) {
@@ -75,6 +75,7 @@ sub _common_s3_init {
         aws_access_key_id     => $self->{access_key_id},
         aws_secret_access_key => $self->{sec_access_key_id},
         retry                 => 1,
+        secure                => 1
     });
 }
 
