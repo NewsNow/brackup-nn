@@ -157,6 +157,7 @@ sub _populate_lengthdigest {
     die "ASSERT: encrypted length or digest not set" if $self->encrypted;
 
     # Unencrypted version
+    die "ASSERT: Raw digest has not been calculated yet (1)" unless $self->{pchunk}->has_raw_digest();
     $self->{backdigest} = "sha1:" . io_sha1($self->{pchunk}->raw_chunkref);
     $self->{backlength} = $self->{pchunk}->length;  # length of raw data
     return 1;
@@ -168,6 +169,8 @@ sub chunkref {
       $self->{_chunkref}->seek(0, SEEK_SET);
       return $self->{_chunkref};
     }
+
+    die "ASSERT: Backdigest has not been calculated yet" unless $self->{backdigest};
 
     # encrypting case: chunkref gets set via set_encrypted_chunkref in Backup::backup
     croak "ASSERT: encrypted but no chunkref set" if $self->encrypted;
@@ -186,6 +189,7 @@ sub set_encrypted_chunkref {
     die "ASSERT: not enc"      unless $self->encrypted;
     die "ASSERT: already set?" if $self->{backlength} || $self->{backdigest};
 
+    die "ASSERT: Raw digest has not been calculated yet (2)" unless $self->{pchunk}->has_raw_digest();
     $self->{backdigest} = "sha1:" . io_sha1($fh);
     $self->{backlength} = $enc_length;
 

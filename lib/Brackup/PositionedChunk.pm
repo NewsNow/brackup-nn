@@ -72,6 +72,11 @@ sub root {
     return $self->file->root;
 }
 
+sub has_raw_digest {
+    my $self = shift;
+    return $self->{_raw_digest};
+}
+
 sub raw_digest {
     my $self = shift;
     return $self->{_raw_digest} ||= $self->_calc_raw_digest;
