@@ -69,6 +69,15 @@ sub can_fit {
     return $len <= ($self->{max_size} - $self->{used_up});
 }
 
+sub add_me_to_inventory {
+    my $self = shift;
+    ## target is not needed here
+
+    foreach my $schunk (@{$self->{subchunks}}) {
+        $self->{target}->add_to_inventory($schunk->pchunk => $schunk);
+    }
+}
+
 # return on success; die on any failure
 sub finalize {
     my $self = shift;
@@ -76,10 +85,6 @@ sub finalize {
 
     $self->{target}->store_chunk($self)
         or die "chunk storage of composite chunk failed.\n";
-
-    foreach my $schunk (@{$self->{subchunks}}) {
-        $self->{target}->add_to_inventory($schunk->pchunk => $schunk);
-    }
 
     $self->forget_chunkref;
 

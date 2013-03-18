@@ -263,7 +263,7 @@ sub backup {
             } else {
                 # store it regularly, as its own chunk on the target
                 $self->debug_more("    * storing ... \n");
-                $target->store_chunk($schunk, $pchunk)
+                $target->store_chunk($schunk)
                     or die "Chunk storage failed.\n";
                 $self->debug_more("    * chunk stored\n");
             }
@@ -462,7 +462,7 @@ sub record_mode_ids {
 sub add_unflushed_file {
     my ($self, $file, $handlelist) = @_;
     push @{ $self->{unflushed_files} }, [ $file, $handlelist ];
-}   
+}
 
 sub flush_files {
     my ($self, $fh) = @_;
@@ -476,7 +476,7 @@ sub flush_files {
 sub add_saved_file {
     my ($self, $file, $handlelist) = @_;
     push @{ $self->{saved_files} }, [ $file, $handlelist ];
-}   
+}
 
 sub foreach_saved_file {
     my ($self, $cb) = @_;
@@ -496,7 +496,7 @@ sub debug {
 sub debug_more {
     my $self = shift;
     return unless $self->{verbose} && $self->{verbose} >= 2;
-    $self->report_open_files;
+    # not found: $self->report_open_files;
     $self->debug(@_);
 }
 

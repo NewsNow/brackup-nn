@@ -183,6 +183,13 @@ sub chunkref {
     return $self->{_chunkref} = $self->{pchunk}->raw_chunkref;
 }
 
+sub add_me_to_inventory {
+    my $self = shift;
+    my $target = shift;
+
+    $target->add_to_inventory($self->{pchunk} => $self);
+}
+
 # set encrypted chunk filehandle and digest/length
 sub set_encrypted_chunkref {
     my ($self, $fh, $enc_length) = @_;

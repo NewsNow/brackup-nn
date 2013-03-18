@@ -146,17 +146,15 @@ sub load_chunk {
 }
 
 sub store_chunk {
-    my ($self, $schunk, $pchunk) = @_;
+    my ($self, $schunk) = @_;
 
     use POSIX ":sys_wait_h";
 
-    my $k = $pchunk->inventory_key;
     my $v = $schunk->inventory_value;
 
     if(!$self->{daemons}) {
         if($self->_store_chunk($schunk)) {
-        # if($self->_store_chunk($schunk, $dig, $chunkref)) {
-            $self->add_to_inventory($pchunk, $schunk);
+            $schunk->add_me_to_inventory($self);
             return 1;
         }
         else {
@@ -171,10 +169,10 @@ sub store_chunk {
     $self->wait_for_kids($self->{daemons}-1);
 
     if(my $pid = fork) {
-        $self->{children}->{$pid} = {'schunk' => $schunk, 'pchunk' => $pchunk};
+        $self->{children}->{$pid} = {'schunk' => $schunk};
     }
     else {
-        $0 .= " $k => $v";
+        $0 .= " Storing $v";
         my $C = $self->_store_chunk($schunk) ? 0 : -1;
 
         # See http://perldoc.perl.org/perlfork.html
@@ -194,7 +192,7 @@ sub wait_found_kid {
     my $code = shift;
 
     if($code == 0) {
-	$self->add_to_inventory($self->{children}->{$pid}->{pchunk} => $self->{children}->{$pid}->{schunk});
+      $self->{children}->{$pid}->{schunk}->add_me_to_inventory($self);
     }
 }
 
