@@ -235,7 +235,7 @@ sub gc {
     # get all chunks and then loop through metafiles to detect
     # referenced ones
     my %chunks = map {$_ => 1} $self->chunks;
-    
+
     my $total_chunks = scalar keys %chunks;
     my $tempfile = +(tempfile())[1];
     my @backups = $self->backups;
@@ -273,14 +273,26 @@ sub gc {
 
         if (lc substr($confirm,0,1) eq 'y') {
             warn "Removing orphaned chunks\n" if $opt{verbose};
-            $self->delete_chunk($_) for (@orphaned_chunks);
 
-            # delete orphaned chunks from inventory
+            # delete orphaned chunks from inventory and THEN from the target
             my $inventory_db = $self->inventory_db;
             while (my ($k, $v) = $inventory_db->each) {
                 $v =~ s/ .*$//;         # strip value back to hash
-                $inventory_db->delete($k) if exists $chunks{$v};
+                if(exists $chunks{$v}){
+                    $inventory_db->delete($k);
+                    $self->delete_chunk($v);
+                    delete $chunks{$v};
+                }
             }
+
+            # delete chunks not found in the inventory
+            foreach my $v (keys %chunks){
+                $self->delete_chunk($v);
+            }
+
+            # delete oprhaned chunks from target
+            $self->delete_chunk($_) for (@orphaned_chunks);
+
         }
     }
 
