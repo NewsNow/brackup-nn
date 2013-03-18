@@ -243,14 +243,15 @@ sub _store_chunk {
 
     my $rv;
     my $n_fails = 0;
-    while (!$rv && $n_fails < 5) {
+    while (!$rv && $n_fails < 12) {
         $rv = $try->();
         last if $rv;
 
         # transient failure?
         $n_fails++;
-        warn "Error uploading chunk $chunk [$@]... will do retry \#$n_fails in 5 seconds ...\n";
-        sleep 5;
+        my $tosleep = $n_fails > 5 ? ( $n_fails > 10 ? 300 : 30 ) : 5;
+        warn "Error uploading chunk $chunk [$@]... will do retry \#$n_fails in $tosleep seconds ...\n";
+        sleep $tosleep;
     }
     unless ($rv) {
         warn "Error uploading chunk again: " . $self->{s3}->errstr . "\n";
