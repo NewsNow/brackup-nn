@@ -34,6 +34,7 @@ sub new {
         unless $self->{name} =~ /^\w+/;
 
     $self->{keep_backups} = $confsec->value("keep_backups");
+    $self->{thinning} = $confsec->value("thinning");
     $self->{inv_db} =
         Brackup::InventoryDatabase->new($confsec->value("inventorydb_file") ||
                                         $confsec->value("inventory_db") ||
@@ -132,26 +133,70 @@ sub delete_backup {
 sub prune {
     my ($self, %opt) = @_;
 
-    my $keep_backups = $opt{keep_backups} || $self->{keep_backups};
-    die "ERROR: keep_backups option not set\n" if ! defined $keep_backups;
-    die "ERROR: keep_backups option must be at least 1\n"
-        unless $keep_backups > 0 || $opt{source};
+    my $keep_backups = defined $opt{keep_backups} ? $opt{keep_backups} : $self->{keep_backups};
+    my $thinning = $self->{thinning};
+    die "ERROR: keep_backups or thinning option not set\n" if ! defined $keep_backups and ! defined $thinning;
+    die "ERROR: keep_backups option must be at least 1 if no source is specified\n"
+        if( ! $opt{source} and ! $thinning and $keep_backups < 1 );
+
+    # Parse the thinning config
+    my %thinning_conf;
+    if($thinning){
+        foreach my $t (split(/,/, $thinning)){
+            my ($age, $gap) = split(/:/, $t);
+            $age =~ s/^\s+|\s+$//g;
+            $gap =~ s/^\s+|\s+$//g;
+            die "ERROR: age missing from thinning config\n" unless $age;
+            die "ERROR: gap missing from thinning config\n" unless $gap;
+            $thinning_conf{$age} = $gap;
+        }
+        die "ERROR: no entries in thinning config\n" unless scalar(%thinning_conf);
+        $thinning_conf{0} = 0 unless defined $thinning_conf{0};
+    }
 
     # select backups to delete
-    my (%backups, @backups_to_delete) = ();
-    foreach my $backup_name (map {$_->filename} $self->backups) {
+    my (%backups, %backup_objs, @backups_to_delete) = ();
+
+    foreach my $b ($self->backups) {
+        my $backup_name = $b->filename;
         if ($backup_name =~ /^(.+)-\d+$/) {
             $backups{$1} ||= [];
             push @{ $backups{$1} }, $backup_name;
+            $backup_objs{$backup_name} = $b;
         }
         else {
             warn "Unexpected backup name format: '$backup_name' does not match /-d+\$/";
         }
     }
+
     foreach my $source (keys %backups) {
         next if $opt{source} && $source ne $opt{source};
-        my @b = reverse sort @{ $backups{$source} };
-        push @backups_to_delete, splice(@b, ($keep_backups > $#b+1) ? $#b+1 : $keep_backups);
+
+        if($thinning){
+            my $prevage;
+            foreach my $bn (sort @{ $backups{$source} }) { # loop through backup names related to source
+                ## We loop through the points in forward chronological order, so age is decreasing!
+                my $bo = $backup_objs{$bn}; # the backup object
+                my $ageindays = int( $bo->time / 60 / 60 / 24 + .5 );
+                my $gapindays = int( ($prevage - $bo->time) / 60 / 60 / 24 + .5 ) if defined $prevage;
+                my $desiredgap;
+
+                foreach my $conf_age (reverse sort keys %thinning_conf){
+                    $desiredgap = $thinning_conf{$conf_age} if $ageindays >= $conf_age;
+                }
+
+                if( (defined $prevage) && ( $desiredgap eq 'delete' || $gapindays < $desiredgap ) ) {
+                    push @backups_to_delete, $bn;
+                }
+                else {
+                    $prevage = $bo->time;
+                }
+            }
+        }
+        else{
+            my @b = reverse sort @{ $backups{$source} };
+            push @backups_to_delete, splice(@b, ($keep_backups > $#b+1) ? $#b+1 : $keep_backups);
+        }
     }
 
     warn ($opt{dryrun} ? "Pruning:\n" : "Pruned:\n") if $opt{verbose};
@@ -267,6 +312,20 @@ B<Riak> -- see L<Brackup::Target::Riak> for configuration details
 =item B<keep_backups>
 
 The default number of recent backups to keep when running I<brackup-target prune>.
+
+=item B<thinning>
+
+Applies to I<brackup-target prune> and specifies how backups should be thinned.
+Incompatible with I<keep_backups>.
+
+<format> := <thinpoint> "," <thinpoint>+
+<thinpoint> := <age_in_days> ":" ( <desired_gap_in_days> | "delete" )
+
+For example, I<thinning = 7:2,14:4,31:delete> means that after 7 days as we go back in time,
+the gap between retained backups should be at least 2 days; after 14 days, it should be at least 4 days;
+and after 31 days, no backups should be retained.
+
+Thinning applies to each source individually.
 
 =item B<inventorydb_file>
 
