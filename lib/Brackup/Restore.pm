@@ -165,7 +165,7 @@ sub restore {
             push @errors, $_;
         };
 
-        if(my @waiterrors = $self->wait($self->{daemons}-1)) {
+        if(my @waiterrors = $self->wait_for_kids($self->{daemons}-1)) {
             die $waiterrors[0] unless $self->{onerror} eq 'continue';
             push @errors, @waiterrors;
         }
@@ -175,7 +175,7 @@ sub restore {
     delete $self->{_cached_dig};
     delete $self->{_cached_dataref};
 
-    if(my @waiterrors = $self->wait(0)) {
+    if(my @waiterrors = $self->wait_for_kids(0)) {
         die $waiterrors[0] unless $self->{onerror} eq 'continue';
         push @errors, @waiterrors;
     }
@@ -459,13 +459,12 @@ sub __restore_file {
     $self->_update_statinfo($full, $it);
 }
 
-sub wait {
+sub wait_for_kids {
     my $self = shift;
     my $maxkids = shift;
 
     my @errors;
     while( scalar( keys %{ $self->{'children'} } ) > $maxkids ) {
-    # print STDERR "Waiting for PIDs " . join(' ', sort keys %{ $self->{'children'} }) . "\n";
     if(my $pid = wait) {
         if($pid != -1 && $self->{children}->{$pid}) {
             my $code = ($? >> 8) & 255;
@@ -476,15 +475,10 @@ sub wait {
 
             push(@errors, $r) if $code != 0;
             delete $self->{children}->{$pid};
-
-            # $r =~ s/\n$//s;
-            # print STDERR "For PID $pid, received \"$r\" and exit code $code\n";
-
             }
         }
     }
 
-    # print "Returning errors: " . join('|',@errors) . "\n";
     return @errors;
 }
 
