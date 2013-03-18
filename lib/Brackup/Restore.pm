@@ -165,10 +165,12 @@ sub restore {
             push @errors, $_;
         };
 
-        if(my @waiterrors = $self->wait_for_kids($self->{daemons}-1)) {
-            die $waiterrors[0] unless $self->{onerror} eq 'continue';
-            push @errors, @waiterrors;
-        }
+        if($self->{daemons}) {
+			  if(my @waiterrors = $self->wait_for_kids($self->{daemons}-1)) {
+				  die $waiterrors[0] unless $self->{onerror} eq 'continue';
+				  push @errors, @waiterrors;
+			  }
+		  }
     }
 
     # clear chunk cached by _restore_file
