@@ -81,6 +81,10 @@ Brackup config file to use instead of default.
 
 Show more info during restore.
 
+=item --threads=NUMBER
+
+Number of processes to use to restore files in parallel.
+
 =back
 
 =head1 WARRANTY
@@ -111,7 +115,7 @@ use lib "$Bin/lib";
 use Brackup;
 use Brackup::Util qw(tempfile);
 
-my ($opt_verbose, $meta_file, $opt_help, $restore_dir, $opt_all, $prefix, $config_file);
+my ($opt_verbose, $meta_file, $opt_help, $restore_dir, $opt_all, $prefix, $config_file, $opt_daemons);
 my $onerror  = 'abort';
 my $conflict = 'abort';
 
@@ -126,6 +130,7 @@ usage() unless
                'onerror|on-error=s' => \$onerror,
                'conflict=s'         => \$conflict,
                'config=s'           => \$config_file,
+               'threads=s'          => \$opt_daemons
                );
 
 if ($opt_help) {
@@ -160,6 +165,7 @@ my $restore = Brackup::Restore->new(
                                     onerror     => $onerror,
                                     conflict    => $conflict,
                                     verbose     => $opt_verbose,
+                                    daemons     => $opt_daemons
                                     );
 
 try {

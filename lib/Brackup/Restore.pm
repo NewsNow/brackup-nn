@@ -39,6 +39,7 @@ sub new {
     $self->{onerror}  = delete $opts{onerror}  || 'abort';
     $self->{conflict} = delete $opts{conflict} || 'abort';
     $self->{verbose}  = delete $opts{verbose};
+    $self->{daemons}  = delete $opts{daemons}; # number of processes used to restore files in parallel
 
     $self->{_local_uid_map} = {};  # remote/metafile uid -> local uid
     $self->{_local_gid_map} = {};  # remote/metafile gid -> local gid
@@ -164,7 +165,7 @@ sub restore {
             push @errors, $_;
         };
 
-        if(my @waiterrors = $self->wait(15-1)) {
+        if(my @waiterrors = $self->wait($self->{daemons}-1)) {
             die $waiterrors[0] unless $self->{onerror} eq 'continue';
             push @errors, @waiterrors;
         }
@@ -356,6 +357,10 @@ sub _restore_fifo {
 
 sub _restore_file {
     my ($self, $full, $it) = @_;
+
+    unless( $self->{daemons} ){
+        return $self->__restore_file($full, $it);
+    }
 
     use IO::File;
     my $fh = IO::File->new();
