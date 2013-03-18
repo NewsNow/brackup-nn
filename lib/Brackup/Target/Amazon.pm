@@ -95,6 +95,7 @@ sub backup_header {
     return {
         "AWSAccessKeyID"    => $self->{access_key_id},
         "AWSPrefix"         => $self->{prefix},
+        "ChunkPathPrefix"   => $self->{chunk_path_prefix}
     };
 }
 
@@ -121,6 +122,7 @@ sub new_from_backup_header {
     $self->{access_key_id}     = $accesskey;
     $self->{sec_access_key_id} = $sec_accesskey;
     $self->{prefix}            = $prefix || $self->{access_key_id};
+    $self->{chunk_path_prefix} = $header->{ChunkPathPrefix} || $confsec->value("chunk_path_prefix");
     $self->_common_s3_init;
     return $self;
 }
