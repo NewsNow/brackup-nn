@@ -138,7 +138,7 @@ usage() unless
                'from=s'    => \$src_name,
                'to=s'      => \$target_name,
                'verbose+'  => \$opt_verbose,
-               'zenity-progress' => \$opt_zenityprogress,
+               'zenityprogress' => \$opt_zenityprogress,
                'output=s'  => \$backup_file,
                'save-stats:s' => \$stats_file,
                'help'      => \$opt_help,
@@ -157,7 +157,7 @@ if ($opt_help) {
 }
 
 if ($opt_verbose && $opt_zenityprogress) {
-    die "Can't use --verbose and --zenity-progress at the same time";
+    die "Can't use --verbose and --zenityprogress at the same time";
 }
 
 my $config = eval { Brackup::Config->load($config_file) } or
