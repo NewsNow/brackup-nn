@@ -150,8 +150,6 @@ sub store_chunk {
 
     use POSIX ":sys_wait_h";
 
-    my $v = $schunk->inventory_value;
-
     if(!$self->{daemons}) {
         if($self->_store_chunk($schunk)) {
             $schunk->add_me_to_inventory($self);
@@ -172,7 +170,7 @@ sub store_chunk {
         $self->{children}->{$pid} = {'schunk' => $schunk};
     }
     else {
-        $0 .= " Storing $v";
+        $0 .= " Storing schunk " . $schunk->backup_digest;
         my $C = $self->_store_chunk($schunk) ? 0 : -1;
 
         # See http://perldoc.perl.org/perlfork.html
