@@ -255,7 +255,8 @@ sub store_backup_meta {
 
     $name = $self->{backup_prefix} . "-" . $name if defined $self->{backup_prefix};
 
-    eval {
+    return 1 if 
+	  eval {
         my $bucket = $self->{s3}->bucket($self->{backup_bucket});
         $bucket->add_key_filename(
             $self->backuppath($name),
@@ -263,7 +264,8 @@ sub store_backup_meta {
             { content_type => 'x-danga/brackup-meta' },
          );
     };
-    if($@) { die "Failed to store backup meta file: $@"; }
+	
+    die "Failed to store backup meta file $meta->{filename} to " . $self->backuppath($name) . " in $self->{backup_bucket}" . ($@ && " with exception $@") . "\n";
 }
 
 sub backups {
