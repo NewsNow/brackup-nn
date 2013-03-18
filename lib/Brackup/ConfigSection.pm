@@ -56,6 +56,7 @@ sub byte_value {
     return $1               if $val =~ /^(\d+)b?$/i;
     return $1 * 1024        if $val =~ /^(\d+)kb?$/i;
     return $1 * 1024 * 1024 if $val =~ /^(\d+)mb?$/i;
+    return $1 * 1024 * 1024 * 1024 if $val =~ /^(\d+)gb?$/i;
     die "Unrecognized size format for $key: '$val'\n";
 }
 
