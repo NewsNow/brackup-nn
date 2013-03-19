@@ -103,18 +103,18 @@ sub backup_header {
 sub new_from_backup_header {
     my ($class, $header, $confsec) = @_;
 
-    my $accesskey     = ($ENV{'AWS_KEY'} || 
+    my $accesskey     = ($ENV{'AWS_KEY'} ||
                          $ENV{'AWS_ACCESS_KEY_ID'} ||
-                         $header->{AWSAccessKeyID} || 
-                         $confsec->value('aws_access_key_id') || 
+                         $header->{AWSAccessKeyID} ||
+                         $confsec->value('aws_access_key_id') ||
                          _prompt("Your Amazon AWS access key? "))
         or die "Need your Amazon access key.\n";
-    my $sec_accesskey = ($ENV{'AWS_SEC_KEY'} || 
+    my $sec_accesskey = ($ENV{'AWS_SEC_KEY'} ||
                          $ENV{'AWS_ACCESS_KEY_SECRET'} ||
-                         $confsec->value('aws_secret_access_key') || 
+                         $confsec->value('aws_secret_access_key') ||
                          _prompt("Your Amazon AWS secret access key? "))
         or die "Need your Amazon secret access key.\n";
-    my $prefix        = ($ENV{'AWS_PREFIX'} || 
+    my $prefix        = ($ENV{'AWS_PREFIX'} ||
                          $header->{AWSPrefix} ||
                          $confsec->value('aws_prefix'));
 
@@ -255,7 +255,7 @@ sub store_backup_meta {
 
     $name = $self->{backup_prefix} . "-" . $name if defined $self->{backup_prefix};
 
-    return 1 if 
+    return 1 if
 	  eval {
         my $bucket = $self->{s3}->bucket($self->{backup_bucket});
         $bucket->add_key_filename(
@@ -264,7 +264,7 @@ sub store_backup_meta {
             { content_type => 'x-danga/brackup-meta' },
          );
     };
-	
+
     die "Failed to store backup meta file $meta->{filename} to " . $self->backuppath($name) . " in $self->{backup_bucket}" . ($@ && " with exception $@") . "\n";
 }
 
@@ -388,7 +388,7 @@ a new one by specifing a different I<aws_prefix>.
 
 =item B<backup_prefix>
 
-When storing the backup metadata file to S3, the string specified here will 
+When storing the backup metadata file to S3, the string specified here will
 be prefixed onto the backup name. This is useful if you are collecting
 backups from several hosts into a single Amazon S3 account but need to
 be able to differentiate them; set your prefix to be the hostname

@@ -30,7 +30,7 @@ sub new {
     $self->{name} = $confsec->name;
     $self->{name} =~ s/^TARGET://
         or die "No target found matching " . $confsec->name;
-    die "Target name must be only a-z, A-Z, 0-9, and _." 
+    die "Target name must be only a-z, A-Z, 0-9, and _."
         unless $self->{name} =~ /^\w+/;
 
     $self->{keep_backups} = $confsec->value("keep_backups");
@@ -133,14 +133,14 @@ sub delete_backup {
 sub wait_for_kids {
     my $self = shift;
     my $maxkids = shift;
-    
+
     while( scalar( keys %{ $self->{'children'} } ) > $maxkids ) {
-	if(my $pid = wait) {
-	    if($pid != -1 && $self->{children}->{$pid}) {
-		$self->wait_found_kid($pid, $?);
-		delete $self->{children}->{$pid};
-	    }
-	}
+        if(my $pid = wait) {
+            if($pid != -1 && $self->{children}->{$pid}) {
+                $self->wait_found_kid($pid, $?);
+                delete $self->{children}->{$pid};
+            }
+        }
     }
 }
 
@@ -242,7 +242,7 @@ sub gc {
     BACKUP: foreach my $i (0 .. $#backups) {
         my $backup = $backups[$i];
         warn sprintf "Collating chunks from backup %s [%d/%d]\n",
-            $backup->filename, $i+1, scalar(@backups) 
+            $backup->filename, $i+1, scalar(@backups)
                 if $opt{verbose};
         $self->get_backup($backup->filename, $tempfile) || die "Couldn't get backup " . $backup->filename;
         my $decrypted_backup = new Brackup::DecryptedFile(filename => $tempfile);
@@ -266,7 +266,7 @@ sub gc {
     if (@orphaned_chunks && ! $opt{dryrun}) {
         my $confirm = 'y';
         if ($opt{interactive}) {
-            printf "Run gc, removing %d/%d orphaned chunks? [y/N] ", 
+            printf "Run gc, removing %d/%d orphaned chunks? [y/N] ",
               scalar @orphaned_chunks, $total_chunks;
             $confirm = <>;
         }
@@ -324,7 +324,7 @@ In your ~/.brackup.conf file:
 
 =item B<type>
 
-The driver for this target type.  The type B<Foo> corresponds to the Perl module 
+The driver for this target type.  The type B<Foo> corresponds to the Perl module
 Brackup::Target::B<Foo>.
 
 The set of targets (and the valid options for type) currently distributed with the
@@ -362,7 +362,7 @@ Thinning applies to each source individually.
 
 =item B<inventorydb_file>
 
-The location of the L<Brackup::InventoryDatabase> inventory database file for 
+The location of the L<Brackup::InventoryDatabase> inventory database file for
 this target e.g.
 
   [TARGET:amazon]
@@ -371,7 +371,7 @@ this target e.g.
   aws_secret_access_key =  ...
   inventorydb_file = /home/bradfitz/.amazon-already-has-these-chunks.db
 
-Only required if you wish to change this from the default, which is 
+Only required if you wish to change this from the default, which is
 ".brackup-target-TARGETNAME.invdb" in your home directory.
 
 =item B<inventorydb_type>
@@ -379,12 +379,12 @@ Only required if you wish to change this from the default, which is
 Dictionary type to use for the inventory database. The dictionary type B<Bar>
 corresponds to the perl module Brackup::Dict::B<Bar>.
 
-The default inventorydb_type is B<SQLite>. See L<Brackup::InventoryDatabase> for 
+The default inventorydb_type is B<SQLite>. See L<Brackup::InventoryDatabase> for
 more.
 
 =item B<inherit>
 
-The name of another Brackup::Target section to inherit from i.e. to use 
+The name of another Brackup::Target section to inherit from i.e. to use
 for any parameters that are not already defined in the current section e.g.:
 
   [TARGET:ftp_defaults]

@@ -98,7 +98,7 @@ sub restore {
     }
 
     # we first process directories, then files sorted by their first chunk,
-    # then the rest. The file sorting allows us to avoid loading composite 
+    # then the rest. The file sorting allows us to avoid loading composite
     # chunks and identical single chunk files multiple times from the target
     # (see _restore_file)
     my (@dirs, @files, @rest);
@@ -166,11 +166,11 @@ sub restore {
         };
 
         if($self->{daemons}) {
-			  if(my @waiterrors = $self->wait_for_kids($self->{daemons}-1)) {
-				  die $waiterrors[0] unless $self->{onerror} eq 'continue';
-				  push @errors, @waiterrors;
-			  }
-		  }
+            if(my @waiterrors = $self->wait_for_kids($self->{daemons}-1)) {
+                die $waiterrors[0] unless $self->{onerror} eq 'continue';
+                push @errors, @waiterrors;
+            }
+        }
     }
 
     # clear chunk cached by _restore_file
@@ -197,7 +197,7 @@ sub restore {
 sub _lookup_remote_uid {
     my ($self, $remote_uid, $meta) = @_;
 
-    return $self->{_local_uid_map}->{$remote_uid} 
+    return $self->{_local_uid_map}->{$remote_uid}
         if defined $self->{_local_uid_map}->{$remote_uid};
 
     # meta remote user map - remote_uid => remote username
@@ -217,7 +217,7 @@ sub _lookup_remote_uid {
 sub _lookup_remote_gid {
     my ($self, $remote_gid, $meta) = @_;
 
-    return $self->{_local_gid_map}->{$remote_gid} 
+    return $self->{_local_gid_map}->{$remote_gid}
         if defined $self->{_local_gid_map}->{$remote_gid};
 
     # meta remote group map - remote_gid => remote group
@@ -325,12 +325,12 @@ sub _restore_link {
     my ($self, $full, $it) = @_;
 
     if (-e $full) {
-        die "Link $full ($it->{Path}) already exists.  Aborting." 
+        die "Link $full ($it->{Path}) already exists.  Aborting."
             if $self->{conflict} eq 'abort';
         return if $self->_can_skip($full, $it);
 
         # Can't overwrite symlinks, so unlink explicitly if we're not skipping
-        unlink $full 
+        unlink $full
             or die "Failed to unlink link $full: $!";
     }
 
@@ -348,7 +348,7 @@ sub _restore_fifo {
         return if $self->_can_skip($full, $it);
 
         # Can't overwrite fifos, so unlink explicitly if we're not skipping
-        unlink $full 
+        unlink $full
             or die "Failed to unlink fifo $full: $!";
     }
 
@@ -402,9 +402,9 @@ sub __restore_file {
         my ($offset, $len, $enc_len, $dig) = split(/;/, $ch);
 
         # we process files sorted by the dig of their first chunk, caching
-        # the last seen chunk to avoid loading composite chunks multiple 
-        # times (all files included in composite chunks are single-chunk 
-        # files, by definition). Even for non-composite chunks there is a 
+        # the last seen chunk to avoid loading composite chunks multiple
+        # times (all files included in composite chunks are single-chunk
+        # files, by definition). Even for non-composite chunks there is a
         # speedup if we have single-chunk identical files.
         my $dataref;
         if($dig eq ($self->{_cached_dig} || '')) {
@@ -467,16 +467,16 @@ sub wait_for_kids {
 
     my @errors;
     while( scalar( keys %{ $self->{'children'} } ) > $maxkids ) {
-    if(my $pid = wait) {
-        if($pid != -1 && $self->{children}->{$pid}) {
-            my $code = ($? >> 8) & 255;
-            local $/;
-            my $fh = $self->{children}->{$pid};
-            my $r = <$fh>;
-            close $fh;
+        if(my $pid = wait) {
+            if($pid != -1 && $self->{children}->{$pid}) {
+                my $code = ($? >> 8) & 255;
+                local $/;
+                my $fh = $self->{children}->{$pid};
+                my $r = <$fh>;
+                close $fh;
 
-            push(@errors, $r) if $code != 0;
-            delete $self->{children}->{$pid};
+                push(@errors, $r) if $code != 0;
+                delete $self->{children}->{$pid};
             }
         }
     }
