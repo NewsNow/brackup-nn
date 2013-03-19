@@ -41,10 +41,10 @@ Required.  The destination or target for your backup.  Must match a
 [TARGET:NAME] config section in your ~/.brackup.conf. See L<Brackup::Target>
 for more.
 
-=item --output=FILE
+=item --meta-dir=DIRECTORY
 
-Optional.  Defaults to "source-target-YYYYMMDD.brackup".  This is the 
-"metafile" index you'll need to do a restore.
+Optional.  Defaults to the current directory.
+The "metafile" index is saved here that you'll need to do a restore.
 
 =item --config=FILE
 
@@ -53,7 +53,7 @@ Specify the configuration file to use; defaults to ~/.brackup.
 =item --save-stats[=FILE]
 
 Optional.  Flag to indicate that stats output should be recorded to a
-file. If =FILE is omitted, defaults to "source-target-YYYYMMDD.stats."
+file. If =FILE is omitted, defaults to "source-target-DATETIME.stats."
 
 =item --verbose|-v
 
@@ -122,8 +122,9 @@ use lib "$Bin/lib";
 
 use Brackup;
 use Brackup::Util qw(noclobber_filename);
+use File::Spec;
 
-my ($src_name, $target_name, $backup_file, $stats_file, $opt_help);
+my ($src_name, $target_name, $meta_dir, $stats_file, $opt_help);
 my $opt_dryrun;
 my $opt_verbose;
 my $opt_du_stats;
@@ -138,8 +139,8 @@ usage() unless
                'from=s'    => \$src_name,
                'to=s'      => \$target_name,
                'verbose+'  => \$opt_verbose,
-               'zenityprogress' => \$opt_zenityprogress,
-               'output=s'  => \$backup_file,
+               'zenity-progress' => \$opt_zenityprogress,
+               'meta-dir=s'  => \$meta_dir,
                'save-stats:s' => \$stats_file,
                'help'      => \$opt_help,
                'dry-run|n' => \$opt_dryrun,
@@ -157,7 +158,7 @@ if ($opt_help) {
 }
 
 if ($opt_verbose && $opt_zenityprogress) {
-    die "Can't use --verbose and --zenityprogress at the same time";
+    die "Can't use --verbose and --zenity-progress at the same time";
 }
 
 my $config = eval { Brackup::Config->load($config_file) } or
@@ -199,23 +200,6 @@ my $target = eval { $config->load_target($target_name); } or
     usage($@);
 
 
-my @now = localtime();
-$backup_file ||= sprintf("%s-%s-%04d%02d%02d.brackup", 
-    $root->name, $target->name, $now[5]+1900, $now[4]+1, $now[3]);
-$backup_file =~ s!^~/!$ENV{HOME}/! if $ENV{HOME};
-$backup_file = "$cwd/$backup_file" unless $backup_file =~ m!^/!;
-
-if (defined $stats_file) {
-  if ($stats_file eq '') {
-    ($stats_file = $backup_file) =~ s/(\.brackup)?$/.stats/;
-  }
-  else {
-    $stats_file = "$cwd/$stats_file" unless $stats_file =~ m!^/!;
-  }
-}
-$backup_file = noclobber_filename($backup_file);
-$stats_file = noclobber_filename($stats_file) if $stats_file;
-
 my $backup = Brackup::Backup->new(
                                   root           => $root,
                                   target         => $target,
@@ -225,15 +209,24 @@ my $backup = Brackup::Backup->new(
                                   arguments      => $arguments,
                                   );
 
-if (my $stats = eval { $backup->backup($backup_file) }) {
+if (my ($stats, $backup_file) = eval { $backup->backup($meta_dir || $cwd) }) {
     warn "Backup complete.\n" if $opt_verbose;
 
     if ($opt_dryrun || $opt_verbose) {
         $stats->print;
     }
-    if ($stats_file) {
+
+    if (defined $stats_file) {
+        if ($stats_file eq '') {
+            ($stats_file = $backup_file) =~ s/(\.brackup)?$/.stats/;
+        }
+        else{
+            $stats_file = File::Spec->catfile($cwd, $stats_file) unless $stats_file =~ m!^/!;
+        }
+        $stats_file = noclobber_filename($stats_file);
         $stats->print($stats_file);
     }
+
     warn "Stats complete.\n" if $opt_verbose;
     exit 0;
 } else {

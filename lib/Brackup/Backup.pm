@@ -23,7 +23,9 @@ use Brackup::CompositeChunk;
 use Brackup::GPGProcManager;
 use Brackup::GPGProcess;
 use Brackup::Webhook;
+use Brackup::Util qw(noclobber_filename);
 use File::Basename;
+use File::Spec;
 use File::Temp qw(tempfile);
 
 sub new {
@@ -55,7 +57,7 @@ sub new {
 
 # returns true (a Brackup::BackupStats object) on success, or dies with error
 sub backup {
-    my ($self, $backup_file) = @_;
+    my ($self, $meta_dir) = @_;
 
     my $root   = $self->{root};
     my $target = $self->{target};
@@ -76,6 +78,10 @@ sub backup {
 
     my $n_files_done = 0;   # int
     my @files;         # Brackup::File objs
+
+    my $meta_name = $self->{root}->publicname . "-" . $self->{target}->name . "-" . $self->backup_time . '.brackup';
+    my $backup_file = File::Spec->catfile($meta_dir || '', $meta_name);
+    $backup_file = noclobber_filename($backup_file); # just in case
 
     $self->debug("Discovering files in ", $root->path, "...\n");
     $self->report_progress(0, "Discovering files in " . $root->path . "...");
@@ -367,8 +373,7 @@ sub backup {
 
         # store it on the target
         $self->debug("Storing metafile to " . ref($target));
-        my $name = $self->{root}->publicname . "-" . $self->backup_time;
-        $target->store_backup_meta($name, $store_fh, { filename => $store_filename, is_encrypted => $is_encrypted });
+        $target->store_backup_meta($meta_name, $store_fh, { filename => $store_filename, is_encrypted => $is_encrypted });
         $stats->timestamp('Metafile Storage');
 
         # cleanup encrypted metafile
@@ -383,7 +388,7 @@ sub backup {
         Brackup::Webhook->new(url => $url, root => $root, target => $target, stats => $stats)->fire;
     }
 
-    return $stats;
+    return ($stats, $backup_file);
 }
 
 sub default_file_mode {
