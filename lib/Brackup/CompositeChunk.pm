@@ -48,7 +48,10 @@ sub new {
 
 sub append_little_chunk {
     my ($self, $schunk) = @_;
-    die "ASSERT" if $self->{digest}; # its digest was already requested?
+    die "ASSERT (composite chunk digest already requested)" if $self->{digest}; # its digest was already requested?
+
+    # Before we do anything, call chunkref. This may die if the underlying file has changed
+    $schunk->chunkref;
 
     my $from = $self->{used_up};
     $self->{used_up} += $schunk->backup_length;

@@ -117,11 +117,12 @@ sub raw_chunkref {
     }
 
     my $fullpath = $self->{file}->fullpath;
-    my $fh = IO::File->new($fullpath, 'r') or die "Failed to open $fullpath: $!";
+
+    my $fh = IO::File->new($fullpath, 'r') or die "[SKIP_FILE] Failed to open $fullpath: $!";
     binmode($fh);
 
     my $ifh = IO::InnerFile->new($fh, $self->{offset}, $self->{length})
-        or die "Failed to create inner file handle for $fullpath: $!\n";
+        or die "[SKIP_FILE] Failed to create inner file handle for $fullpath: $!\n";
     return $self->{_raw_chunkref} = $ifh;
 }
 

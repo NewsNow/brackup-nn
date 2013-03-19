@@ -170,7 +170,7 @@ sub _calc_full_digest {
     unless ($dig) {
         my $sha1 = Digest::SHA1->new;
         my $path = $self->fullpath;
-        sysopen(my $fh, $path, O_RDONLY) or die "Failed to open $path: $!";
+        sysopen(my $fh, $path, O_RDONLY) or die "[SKIP_FILE] Failed to open $path: $!";
         binmode($fh);
         $sha1->addfile($fh);
         close($fh);

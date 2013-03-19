@@ -141,6 +141,7 @@ sub backup {
     }
 
     my $cur_file; # current (last seen) file
+    my $cur_file_not_available; # True if errors occurred while reading from the current file
     my @stored_chunks;
     my $file_has_shown_status = 0;
 
@@ -149,6 +150,7 @@ sub backup {
 
     my $end_file = sub {
         return unless $cur_file;
+        return if $cur_file_not_available;
         if ($merge_under && $comp_chunk) {
             # defer recording to backup_file until CompositeChunk finalization
             $self->add_unflushed_file($cur_file, [ @stored_chunks ]);
@@ -160,7 +162,9 @@ sub backup {
         $n_files_done++;
         $n_kb_done += $cur_file->size / 1024;
         $cur_file = undef;
+        $cur_file_not_available = undef;
     };
+
     my $show_status = sub {
         # use either size of files in normal case, or if we pre-calculated
         # the size-to-upload (by looking in inventory, then we'll show the
@@ -178,12 +182,14 @@ sub backup {
 
         $self->report_progress($percdone);
     };
+
     my $start_file = sub {
         $end_file->();
         $cur_file = shift;
+        $cur_file_not_available = undef;
         @stored_chunks = ();
         $show_status->() if $cur_file->is_dir;
-        if ($gpg_iter) {
+        if ($gpg_iter) { # $gpg_iter is a chunk iterator
             # catch our gpg iterator up.  we want it to be ahead of us,
             # nothing iteresting is behind us.
             $gpg_iter->next while $gpg_iter->behind_by > 1;
@@ -194,112 +200,132 @@ sub backup {
     # records are either Brackup::File (for symlinks, directories, etc), or
     # PositionedChunks, in which case the file can asked of the chunk
     while (my $rec = $chunk_iterator->next) {
-        if ($rec->isa("Brackup::File")) {
-            $start_file->($rec);
-            next;
-        }
-        my $pchunk = $rec;
-        if ($pchunk->file != $cur_file) {
-            $start_file->($pchunk->file);
-        }
+        my $eval_r = eval {
+            # Returning with '2' means 'next' should be called
 
-        # have we already stored this chunk before?  (iterative backup)
-        my $schunk;
-        if ($schunk = $target->stored_chunk_from_inventory($pchunk)) {
-            $pchunk->forget_chunkref;
-            push @stored_chunks, $schunk;
-            next;
-        }
-
-        # weird case... have we stored this same pchunk digest in the
-        # current comp_chunk we're building?  these aren't caught by
-        # the above inventory check, because chunks in a composite
-        # chunk aren't added to the inventory until after the the composite
-        # chunk has fully grown (because it's not until it's fully grown
-        # that we know the handle for it, its digest)
-        if ($comp_chunk && ($schunk = $comp_chunk->stored_chunk_from_dup_internal_raw($pchunk))) {
-            $pchunk->forget_chunkref;
-            push @stored_chunks, $schunk;
-            next;
-        }
-
-        unless ($file_has_shown_status++) {
-            $show_status->();
-            $n_files_up++;
-        }
-        $self->debug("  * storing chunk: ", $pchunk->as_string, "\n");
-        $self->report_progress(undef, $pchunk->file->path . " (" . $pchunk->offset . "," . $pchunk->length . ")");
-
-        unless ($self->{dryrun}) {
-            $schunk = Brackup::StoredChunk->new($pchunk);
-
-            # encrypt it
-            if (@gpg_rcpts) {
-                $self->debug_more("    * encrypting ... \n");
-                $schunk->set_encrypted_chunkref($gpg_pm->enc_chunkref_of($pchunk));
+            if ($rec->isa("Brackup::File")) {
+                $start_file->($rec);
+                return 2;
+            }
+            my $pchunk = $rec;
+            if ($pchunk->file != $cur_file) {
+                $start_file->($pchunk->file);
             }
 
-            # see if we should pack it into a bigger blob
-            my $chunk_size = $schunk->backup_length;
+            # have we already stored this chunk before?  (iterative backup)
+            my $schunk;
+            if ($schunk = $target->stored_chunk_from_inventory($pchunk)) {
+                $pchunk->forget_chunkref;
+                push @stored_chunks, $schunk;
+                return 2;
+            }
 
-            # see if we should merge this chunk (in this case, file) together with
-            # other small files we encountered earlier, into a "composite chunk",
-            # to be stored on the target in one go.
+            # weird case... have we stored this same pchunk digest in the
+            # current comp_chunk we're building?  these aren't caught by
+            # the above inventory check, because chunks in a composite
+            # chunk aren't added to the inventory until after the the composite
+            # chunk has fully grown (because it's not until it's fully grown
+            # that we know the handle for it, its digest)
+            if ($comp_chunk && ($schunk = $comp_chunk->stored_chunk_from_dup_internal_raw($pchunk))) {
+                $pchunk->forget_chunkref;
+                push @stored_chunks, $schunk;
+                return 2;
+            }
 
-            # Note: no technical reason for only merging small files (is_entire_file),
-            # and not the tails of larger files.  just don't like the idea of files being
-            # both split up (for big head) and also merged together (for little end).
-            # would rather just have 1 type of magic per file.  (split it or join it)
-            if ($merge_under && $chunk_size < $merge_under && $pchunk->is_entire_file) {
-                if ($comp_chunk && ! $comp_chunk->can_fit($chunk_size)) {
-                    $self->debug("Finalizing composite chunk $comp_chunk...");
-                    $comp_chunk->finalize;
-                    $comp_chunk = undef;
-                    $self->flush_files($metafh);
+            unless ($file_has_shown_status++) {
+                $show_status->();
+                $n_files_up++;
+            }
+            $self->debug("  * storing chunk: ", $pchunk->as_string, "\n");
+            $self->report_progress(undef, $pchunk->file->path . " (" . $pchunk->offset . "," . $pchunk->length . ")");
+
+            unless ($self->{dryrun}) {
+                $schunk = Brackup::StoredChunk->new($pchunk);
+
+                # encrypt it
+                if (@gpg_rcpts) {
+                    $self->debug_more("    * encrypting ... \n");
+                    $schunk->set_encrypted_chunkref($gpg_pm->enc_chunkref_of($pchunk));
                 }
-                $comp_chunk ||= Brackup::CompositeChunk->new($root, $target);
-                $self->debug_more("    * appending to composite chunk ... \n");
-                $comp_chunk->append_little_chunk($schunk);
-            } else {
-                # store it regularly, as its own chunk on the target
-                $self->debug_more("    * storing ... \n");
-                $target->store_chunk($schunk)
-                    or die "Chunk storage failed.\n";
-                $self->debug_more("    * chunk stored\n");
+
+                # see if we should pack it into a bigger blob
+                my $chunk_size = $schunk->backup_length;
+
+                # see if we should merge this chunk (in this case, file) together with
+                # other small files we encountered earlier, into a "composite chunk",
+                # to be stored on the target in one go.
+
+                # Note: no technical reason for only merging small files (is_entire_file),
+                # and not the tails of larger files.  just don't like the idea of files being
+                # both split up (for big head) and also merged together (for little end).
+                # would rather just have 1 type of magic per file.  (split it or join it)
+                if ($merge_under && $chunk_size < $merge_under && $pchunk->is_entire_file) {
+                    if ($comp_chunk && ! $comp_chunk->can_fit($chunk_size)) {
+                        $self->debug("Finalizing composite chunk $comp_chunk...");
+                        $comp_chunk->finalize;
+                        $comp_chunk = undef;
+                        $self->flush_files($metafh);
+                    }
+                    $comp_chunk ||= Brackup::CompositeChunk->new($root, $target);
+                    $self->debug_more("    * appending to composite chunk ... \n");
+                    $comp_chunk->append_little_chunk($schunk);
+                } else {
+                    # store it regularly, as its own chunk on the target
+                    $self->debug_more("    * storing ... \n");
+                    $target->store_chunk($schunk)
+                        or die "Chunk storage failed.\n";
+                    $self->debug_more("    * chunk stored\n");
+                }
+
+                # if only this worked... (LWP protocol handler seems to
+                # get confused by its syscalls getting interrupted?)
+                #local $SIG{CHLD} = sub {
+                #    print "some child finished!\n";
+                #    $gpg_pm->start_some_processes;
+                #};
+
+
+                $n_kb_up += $pchunk->length / 1024;
+                $schunk->forget_chunkref;
+                push @stored_chunks, $schunk;
             }
 
-            # if only this worked... (LWP protocol handler seems to
-            # get confused by its syscalls getting interrupted?)
-            #local $SIG{CHLD} = sub {
-            #    print "some child finished!\n";
-            #    $gpg_pm->start_some_processes;
-            #};
+            #$stats->note_stored_chunk($schunk);
 
+            # DEBUG: verify it got written correctly
+            if ($ENV{BRACKUP_PARANOID}) {
+                die "FIX UP TO NEW API";
+                #my $saved_ref = $target->load_chunk($handle);
+                #my $saved_len = length $$saved_ref;
+                #unless ($saved_len == $chunk->backup_length) {
+                #    warn "Saved length of $saved_len doesn't match our length of " . $chunk->backup_length . "\n";
+                #    die;
+                #}
+            }
 
-            $n_kb_up += $pchunk->length / 1024;
-            $schunk->forget_chunkref;
-            push @stored_chunks, $schunk;
+            $stats->check_maxmem;
+            $pchunk->forget_chunkref;
+
+            return 1;
+        };
+
+        if($eval_r){
+            next if $eval_r == 2;
+        }
+        else{ # Error occurred
+            my $err = $@;
+            if($err =~ /^\[SKIP_FILE\] (.*)$/){
+                warn "Skipped storing the current chunk because '$1'\n";
+                $cur_file_not_available = 1; # This prevents end_file from adding the file to be flushed to the metafile
+            }else{
+                die $err; # re-throw error
+            }
         }
 
-        #$stats->note_stored_chunk($schunk);
-
-        # DEBUG: verify it got written correctly
-        if ($ENV{BRACKUP_PARANOID}) {
-            die "FIX UP TO NEW API";
-            #my $saved_ref = $target->load_chunk($handle);
-            #my $saved_len = length $$saved_ref;
-            #unless ($saved_len == $chunk->backup_length) {
-            #    warn "Saved length of $saved_len doesn't match our length of " . $chunk->backup_length . "\n";
-            #    die;
-            #}
-        }
-
-        $stats->check_maxmem;
-        $pchunk->forget_chunkref;
     }
-    
+
     $target->wait_for_kids(0);
-    
+
     $end_file->();
     $comp_chunk->finalize if $comp_chunk;
     $stats->timestamp('Chunk Storage');
