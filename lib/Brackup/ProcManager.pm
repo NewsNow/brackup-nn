@@ -81,7 +81,8 @@ sub start_child {
    # thereby corrupting the filehandles. On these systems, calling _exit() is
    # suggested instead.
 
-    _exit( $obj->$method('inchild', {'data'=>$data, 'pid'=>$$}) );
+    my $r = $obj->$method('inchild', {'data'=>$data, 'pid'=>$$});
+    _exit($r);
 
 }
 
