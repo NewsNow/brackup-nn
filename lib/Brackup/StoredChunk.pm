@@ -158,7 +158,7 @@ sub _populate_lengthdigest {
 
     # Unencrypted version
     die "ASSERT: Raw digest has not been calculated yet (1)" unless $self->{pchunk}->has_raw_digest();
-    $self->{backdigest} = "sha1:" . io_sha1($self->{pchunk}->raw_chunkref);
+    $self->{backdigest} = $self->{pchunk}->raw_digest;
     $self->{backlength} = $self->{pchunk}->length;  # length of raw data
     return 1;
 }
@@ -197,7 +197,7 @@ sub set_encrypted_chunkref {
     die "ASSERT: already set?" if $self->{backlength} || $self->{backdigest};
 
     die "ASSERT: Raw digest has not been calculated yet (2)" unless $self->{pchunk}->has_raw_digest();
-    $self->{backdigest} = "sha1:" . io_sha1($fh);
+    $self->{backdigest} = $self->{pchunk}->raw_digest();
     $self->{backlength} = $enc_length;
 
     return $self->{_chunkref} = $fh;

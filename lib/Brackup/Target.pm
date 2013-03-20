@@ -94,11 +94,15 @@ sub daemonised_store_chunk {
         }
     }
 
-    # FIXME:
-    # Check for a child process already storing $self->chunkpath( $schunk->backup_digest ) but not yet
-    # having returned causing the parent to update the inventory.
+    # Check if a child is already storing $schunk
+    my $cur_dig = $schunk->backup_digest;
+    return 1 if Brackup::ProcManager->for_each_child( $self->{childgroup}, sub{
+        return 0 if($_[0]->{data}->{schunk}->backup_digest eq $cur_dig);
+        return 1;
+    });
 
     Brackup::ProcManager->start_child($self->{childgroup}, $self, 'store_daemon_handler', {'schunk'=>$schunk});
+
     return 1;
 }
 

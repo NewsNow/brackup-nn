@@ -141,4 +141,24 @@ sub assert_all_reaped {
     }
 }
 
+# Calls &$callback( $child_hashref ) for each child in $group.
+# Return true from the callback to continue the loop.
+# Returns true if the callback has returned false.
+sub for_each_child {
+    my $class = shift;
+    my $group = shift;
+    my $callback = shift;
+
+    my $stopped;
+    foreach my $o (values %CHILDREN){
+        next unless $o->{group} eq $group;
+        unless(&$callback($o)){
+            $stopped = 1;
+            last;
+        }
+    }
+
+    return $stopped;
+}
+
 1;
