@@ -22,14 +22,14 @@ sub new {
     my ($class, $root, $rconf) = @_;
     my $self = bless {}, $class;
 
-    my $file = $rconf->value('digestdb_file') || 
+    my $file = $rconf->value('digestdb_file') ||
               ($root->path . '/' . default_filename());
-    my $type = $rconf->value('digestdb_type') || 'SQLite';
+    my $type = $rconf->value('digestdb_type') || 'SQLite2';
 
     my $dict_class = "Brackup::Dict::$type";
     eval "require $dict_class";
     $self->{dict} = $dict_class->new(
-        table => "digest_cache", 
+        table => "digest_cache",
         file => $file,
     );
 
@@ -61,7 +61,7 @@ and file chunks, to prevent untouched files from needing to be re-read
 on subsequent, iterative backups.
 
 The digest cache is I<purely> a cache. It has no critical data in it,
-so if you lose it, subsequent backups will just take longer while the 
+so if you lose it, subsequent backups will just take longer while the
 digest cache is re-built.
 
 Note that you don't need the digest cache to do a restore.
@@ -70,13 +70,13 @@ Note that you don't need the digest cache to do a restore.
 
 =head2 Storage type
 
-The digest cache makes use of Dictionary modules (Brackup::Dict::*) to 
-handle the storage of the cache. The default dictionary used is 
+The digest cache makes use of Dictionary modules (Brackup::Dict::*) to
+handle the storage of the cache. The default dictionary used is
 L<Brackup::Dict::SQLite>, which stores the cache as an SQLite database
-in a single file. The schema is created automatically as needed... no 
+in a single file. The schema is created automatically as needed... no
 database maintenance is required.
 
-The dictionary type can be specified in the [SOURCE] declaration in 
+The dictionary type can be specified in the [SOURCE] declaration in
 your brackup.conf file, using the 'digestdb_type' property e.g.:
 
   [SOURCE:home]
@@ -86,7 +86,7 @@ your brackup.conf file, using the 'digestdb_type' property e.g.:
 
 =head2 File location
 
-The cache database file is stored in either the location specified in 
+The cache database file is stored in either the location specified in
 a L<Brackup::Root>'s [SOURCE] declaration in ~/.brackup.conf, as:
 
   [SOURCE:home]

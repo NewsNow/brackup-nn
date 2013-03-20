@@ -24,7 +24,7 @@ sub new {
     my ($class, $file, $tconf) = @_;
     my $self = bless {}, $class;
 
-    my $type = $tconf->value('inventorydb_type') || 'SQLite';
+    my $type = $tconf->value('inventorydb_type') || 'SQLite2';
 
     my $dict_class = "Brackup::Dict::$type";
     eval "require $dict_class";
@@ -100,7 +100,7 @@ would be pretty easy.  (this is a TODO item)
 In any case, it's not tragic if you lose your inventory database... it
 just means you'll need to upload more stuff and maybe waste some disk
 space until you next run a 'L<brackup-target> gc' garbage collection,
-which cleans up orphaned chunks. If you're feeling paranoid, it's safer 
+which cleans up orphaned chunks. If you're feeling paranoid, it's safer
 to delete your inventory database, tricking Brackup into thinking your
 target is empty (even if it's not), rather than Brackup thinking your
 target has something when it actually doesn't.
@@ -109,13 +109,13 @@ target has something when it actually doesn't.
 
 =head2 Storage type
 
-The inventory database makes use of Dictionary modules (Brackup::Dict::*) 
-to handle database storage. The default dictionary used is 
+The inventory database makes use of Dictionary modules (Brackup::Dict::*)
+to handle database storage. The default dictionary used is
 L<Brackup::Dict::SQLite>, which stores the cache as an SQLite database
-in a single file. The schema is created automatically as needed... no 
+in a single file. The schema is created automatically as needed... no
 database maintenance is required.
 
-The dictionary type can be specified in the [TARGET] declaration in 
+The dictionary type can be specified in the [TARGET] declaration in
 your brackup.conf file, using the 'inventorydb_type' property e.g.:
 
   [TARGET:amazon]
@@ -127,8 +127,8 @@ your brackup.conf file, using the 'inventorydb_type' property e.g.:
 
 =head2 File location
 
-The inventory database file (for file-based dictionaries) is stored in 
-either the location specified in the 'inventorydb_file' property of a 
+The inventory database file (for file-based dictionaries) is stored in
+either the location specified in the 'inventorydb_file' property of a
 [TARGET] declaration in ~/.brackup.conf e.g.:
 
   [TARGET:amazon]
