@@ -37,10 +37,14 @@ sub new {
     };
     die "Error: $@" if $@ && $@ !~ /table \w+ already exists/;
 
+    $dbh->do("PRAGMA synchronous = OFF");
+    # $dbh->do("BEGIN TRANSACTION");
     $self->{get_sth} = $self->{dbh}->prepare("SELECT value FROM $self->{table} WHERE key = ?");
 
     return $self;
 }
+
+# DESTROY { my ($self) = @_; $self->{dbh}->do("END TRANSACTION") if $self->{dbh}; }
 
 sub get {
     my ($self, $key) = @_;
