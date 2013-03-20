@@ -17,31 +17,24 @@
 package Brackup::GPGProcess;
 use strict;
 use warnings;
-use Brackup::Util qw(tempfile_obj);
 use POSIX qw(_exit);
 use IO::File;
 
 sub new {
-    my ($class, $pchunk) = @_;
-
-    my $destfh = tempfile_obj();
-    my $destfn = $destfh->filename;
-
-    my $no_fork = $ENV{BRACKUP_NOFORK} || 0;  # if true (perhaps on Windows?), then don't fork... do all inline.
-
-    my $pid = $no_fork ? 0 : fork;
-    if (!defined $pid) {
-        die "Failed to fork: $!";
-    }
+    my ($class, $pid, $destfh) = @_;
 
     # caller (parent)
-    if ($pid) {
-        return bless {
-            destfh    => $destfh,
-            pid       => $pid,
-            running   => 1,
-        }, $class;
-    }
+    return bless {
+        destfh    => $destfh,
+        pid       => $pid,
+        running   => 1,
+    }, $class;
+}
+
+sub encrypt{
+    my ($class, $pchunk, $destfh) = @_;
+
+    my $destfn = $destfh->filename;
 
     # child:  encrypt and exit(0)...
     $pchunk->root->encrypt($pchunk->raw_chunkref, $destfn);
@@ -51,23 +44,14 @@ sub new {
         # already terminated and unlinked our temp file, in
         # which case we should just exit (with error code), rather
         # than spewing error messages to stderr.
-        POSIX::_exit(1);
+        return 1; # process exit code
     }
     unless (-s $destfn) {
-        die "No data in encrypted output file";
+        warn "No data in encrypted output file";
+        return 1;
     }
 
-    if ($no_fork) {
-        return bless {
-            destfh => $destfh,
-            pid    => 0,
-        }, $class;
-    }
-
-    # Note: we have to do this, to avoid some END block, somewhere,
-    # from cleaning up something or doing something.  probably tempfiles
-    # being destroyed in File::Temp.
-    POSIX::_exit(0);
+    return 0;
 }
 
 sub pid { $_[0]{pid} }

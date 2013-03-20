@@ -46,7 +46,6 @@ sub new {
     $self->{backup_prefix} = $confsec->value("backup_prefix") || undef;
     $self->{backup_path_prefix} = $confsec->value("backup_path_prefix") || 'backups/';
     $self->{chunk_path_prefix} = $confsec->value("chunk_path_prefix") || 'chunks/';
-    $self->{daemons} = $confsec->value("daemons") || '0';
 
     $self->_common_s3_init;
 
@@ -150,50 +149,7 @@ sub load_chunk {
 sub store_chunk {
     my ($self, $schunk) = @_;
 
-    use POSIX ":sys_wait_h";
-
-    if(!$self->{daemons}) {
-        if($self->_store_chunk($schunk)) {
-            $schunk->add_me_to_inventory($self);
-            return 1;
-        }
-        else {
-           return 0;
-        }
-    }
-
-    # FIXME:
-    # Check for a child process already storing $self->chunkpath( $schunk->backup_digest ) but not yet
-    # having returned causing the parent to update the inventory.
-
-    $self->wait_for_kids($self->{daemons}-1);
-
-    if(my $pid = fork) {
-        $self->{children}->{$pid} = {'schunk' => $schunk};
-    }
-    else {
-        $0 .= " Storing schunk " . $schunk->backup_digest;
-        my $C = $self->_store_chunk($schunk) ? 0 : -1;
-
-        # See http://perldoc.perl.org/perlfork.html
-        # On some operating systems, notably Solaris and Unixware, calling exit()
-        # from a child process will flush and close open filehandles in the parent,
-        # thereby corrupting the filehandles. On these systems, calling _exit() is
-        # suggested instead.
-        _exit($C);
-    }
-
-    return 1;
-}
-
-sub wait_found_kid {
-    my $self = shift;
-    my $pid = shift;
-    my $code = shift;
-
-    if($code == 0) {
-      $self->{children}->{$pid}->{schunk}->add_me_to_inventory($self);
-    }
+    return $self->daemonised_store_chunk($schunk);
 }
 
 sub _store_chunk {

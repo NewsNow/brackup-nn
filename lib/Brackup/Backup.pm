@@ -223,6 +223,7 @@ sub backup {
             if ($schunk = $target->stored_chunk_from_inventory($pchunk)) {
                 $pchunk->forget_chunkref;
                 push @stored_chunks, $schunk;
+                $self->debug_more('Chunk already stored');
                 return 2;
             }
 
@@ -235,6 +236,7 @@ sub backup {
             if ($comp_chunk && ($schunk = $comp_chunk->stored_chunk_from_dup_internal_raw($pchunk))) {
                 $pchunk->forget_chunkref;
                 push @stored_chunks, $schunk;
+                $self->debug_more('Composite chunk already stored');
                 return 2;
             }
 
@@ -330,10 +332,14 @@ sub backup {
 
     }
 
-    $target->wait_for_kids(0);
+    # If using daemonised storage, ensure all chunks are stored and added to the inventory
+    $target->wait_for_kids();
 
     $end_file->();
+
     $comp_chunk->finalize if $comp_chunk;
+    $target->wait_for_kids(); # finalize() calls store_chunk, so need to wait again
+
     $stats->timestamp('Chunk Storage');
     $self->debug('Flushing files to metafile');
     $self->flush_files($metafh);

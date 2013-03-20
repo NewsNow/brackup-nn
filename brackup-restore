@@ -170,6 +170,7 @@ my $restore = Brackup::Restore->new(
 
 try {
     $restore->restore;
+    Brackup::ProcManager->assert_all_reaped();
     warn "Restore complete.\n" if $opt_verbose;
     exit 0;
 } catch {

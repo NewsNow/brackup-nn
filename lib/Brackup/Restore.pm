@@ -27,7 +27,6 @@ use Try::Tiny;
 use Brackup::DecryptedFile;
 use Brackup::Decrypt;
 use Brackup::ProcManager;
-use POSIX qw(_exit);
 
 sub new {
     my ($class, %opts) = @_;
@@ -54,7 +53,8 @@ sub new {
 
     $self->{metafile} = Brackup::DecryptedFile->new(filename => $self->{filename});
 
-    Brackup::ProcManager->add_handler($self, 'restore_daemon_handler');
+    Brackup::ProcManager->set_maximum('restore', $self->{daemons}-1);
+    $self->{childerrors} = [];
 
     return $self;
 }
@@ -169,10 +169,7 @@ sub restore {
         };
 
         if($self->{daemons}) {
-            if(my @waiterrors = $self->wait_for_kids($self->{daemons}-1)) {
-                die $waiterrors[0] unless $self->{onerror} eq 'continue';
-                push @errors, @waiterrors;
-            }
+            Brackup::ProcManager->wait_for_extra_children('restore');
         }
     }
 
@@ -180,10 +177,9 @@ sub restore {
     delete $self->{_cached_dig};
     delete $self->{_cached_dataref};
 
-    if(my @waiterrors = $self->wait_for_kids(0)) {
-        die $waiterrors[0] unless $self->{onerror} eq 'continue';
-        push @errors, @waiterrors;
-    }
+    Brackup::ProcManager->wait_for_all_children('restore');
+
+    push @errors, @{ $self->{childerrors} };
 
     if ($restore_count) {
         warn " * fixing stat info\n" if $self->{verbose};
@@ -367,24 +363,30 @@ sub _restore_file {
         return $self->__restore_file($full, $it);
     }
 
-    use IO::File;
-    my $fh = IO::File->new();
-    if(my $pid = open($fh, '-|')) {
-        $self->{children}->{$pid} = $fh;
-    }
-    else {
+    Brackup::ProcManager->start_child('restore', $self, 'restore_daemon_handler', [$full, $it]);
+}
+
+sub restore_daemon_handler {
+    my ($self, $flag, $data) = @_;
+
+    if($flag eq 'inchild'){
         eval {
-           $self->__restore_file($full, $it);
-           # See http://perldoc.perl.org/perlfork.html
-           # On some operating systems, notably Solaris and Unixware, calling exit()
-           # from a child process will flush and close open filehandles in the parent,
-           # thereby corrupting the filehandles. On these systems, calling _exit() is
-           # suggested instead.
-           _exit(0);
+            $self->__restore_file( @{ $data->{data} } );
         };
         print $@;
-        _exit(-1);
+        return -1;
     }
+    elsif($flag eq 'childexit'){
+        my $code = ($data->{ret} >> 8) & 255;
+        my $fh = $data->{fh};
+        local $/;
+        my $r = <$fh>;
+        if($code != 0){
+            die $r unless $self->{onerror} eq 'continue';
+            push @{ $self->{childerrors} }, $r if $code != 0;
+        }
+    }
+
 }
 
 sub __restore_file {
@@ -462,35 +464,6 @@ sub __restore_file {
     }
 
     $self->_update_statinfo($full, $it);
-}
-
-sub wait_for_kids {
-    my $self = shift;
-    my $maxkids = shift;
-
-    my @errors;
-    while( scalar( keys %{ $self->{'children'} } ) > $maxkids ) {
-        my $ret = Brackup::ProcManager->wait_for_kid(1);
-        push @errors, $ret->[0] if $ret && $ret->[1] != 0; # set by restore_daemon_handler
-    }
-
-    return @errors;
-}
-
-sub restore_daemon_handler {
-    my ($self, $pid, $ret) = @_;
-
-    return (undef, undef) unless $self->{children}->{$pid};
-
-    my $code = ($ret >> 8) & 255;
-    local $/;
-    my $fh = $self->{children}->{$pid};
-    my $r = <$fh>;
-    close $fh;
-
-    delete $self->{children}->{$pid};
-
-    return (1, [$r, $code]);
 }
 
 # returns iterator subref which returns hashrefs or undef on EOF

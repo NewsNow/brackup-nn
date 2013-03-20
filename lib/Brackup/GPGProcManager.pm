@@ -19,6 +19,7 @@ use strict;
 use warnings;
 use Brackup::GPGProcess;
 use Brackup::ProcManager;
+use Brackup::Util qw(tempfile_obj);
 use POSIX ":sys_wait_h";
 
 sub new {
@@ -33,21 +34,50 @@ sub new {
         uncollected_chunks => 0,
     }, $class;
 
-    Brackup::ProcManager->add_handler($me, 'child_handler');
+    Brackup::ProcManager->set_maximum('gpg', 10);
 
     return $me;
 }
 
+sub gen_process_for {
+    my ($self, $pchunk) = @_;
+
+    return Brackup::ProcManager->start_child('gpg', $self, 'child_handler', {
+        'pchunk' => $pchunk,
+        'destfh' => tempfile_obj()
+    });
+}
+
 sub child_handler {
-    my ($self, $kid, $ret) = @_;
+    my ($self, $flag, $data) = @_;
 
-    my $proc = $self->{procs_running}{$kid};
-    return (undef, undef) unless $proc; # unrecognised child
+    if($flag eq 'inchild'){
 
-    delete $self->{procs_running}{$proc->pid} or die 'ASSERT';
-    $proc->note_stopped;
-    $self->{uncollected_bytes} += $proc->size_on_disk;
-    return (1, $kid);
+        my $pchunk = $data->{data}->{pchunk};
+        return Brackup::GPGProcess->encrypt($pchunk, $data->{data}->{destfh}); # exit code of process
+
+    }
+    elsif($flag eq 'inparent'){
+
+        my $pid = $data->{pid};
+        my $pchunk = $data->{data}->{pchunk};
+        my $proc = Brackup::GPGProcess->new($pid, $data->{data}->{destfh});
+        $self->{procs_running}{$pid} = $proc;
+        $self->{procs}{$pchunk} = $proc;
+        $self->{uncollected_chunks}++;
+        return $proc; # returned by start_child
+
+    }
+    elsif($flag eq 'childexit'){
+
+        my $pid = $data->{pid};
+        my $proc = $self->{procs_running}{$pid};
+        delete $self->{procs_running}{$pid} or die 'ASSERT';
+        $proc->note_stopped;
+        $self->{uncollected_bytes} += $proc->size_on_disk;
+        return $pid; # returned by wait_for_child
+
+    }
 }
 
 sub enc_chunkref_of {
@@ -71,8 +101,8 @@ sub enc_chunkref_of {
         $proc = $self->gen_process_for($pchunk);
     }
 
-    while ($proc->running) { # wait until this particular process dies
-        my $pid = $self->wait_for_a_process(1) or die "No processes were reaped!";
+    while ($proc->running) { # wait until this particular process exits
+        Brackup::ProcManager->wait_for_child(1);
     }
 
     $self->_proc_summary_dump;
@@ -85,9 +115,6 @@ sub enc_chunkref_of {
 
 sub start_some_processes {
     my $self = shift;
-
-    # eat up any pending zombies
-    while ($self->wait_for_a_process(0)) {}
 
     my $pchunk;
     # TODO: make this stuff configurable/auto-tuned
@@ -129,25 +156,9 @@ sub get_proc_chunkref {
     return ($cref, $proc->size_on_disk);
 }
 
-# returns PID of a process that finished
-sub wait_for_a_process {
-    my ($self, $block) = @_;
-
-    return Brackup::ProcManager->wait_for_kid($block);
-}
-
 sub num_uncollected_bytes { $_[0]{uncollected_bytes} }
 
 sub uncollected_chunks { $_[0]{uncollected_chunks} }
-
-sub gen_process_for {
-    my ($self, $pchunk) = @_;
-    my $proc = Brackup::GPGProcess->new($pchunk);
-    $self->{procs_running}{$proc->pid} = $proc;
-    $self->{procs}{$pchunk} = $proc;
-    $self->{uncollected_chunks}++;
-    return $proc;
-}
 
 sub num_running_procs {
     my $self = shift;

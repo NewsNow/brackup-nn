@@ -227,6 +227,7 @@ if (my ($stats, $backup_file) = eval { $backup->backup($meta_dir || $cwd) }) {
         $stats->print($stats_file);
     }
 
+    Brackup::ProcManager->assert_all_reaped();
     warn "Stats complete.\n" if $opt_verbose;
     exit 0;
 } else {

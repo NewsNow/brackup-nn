@@ -42,7 +42,9 @@ sub new {
                                         "$ENV{HOME}/.brackup-target-$self->{name}.invdb",
                                         $confsec);
 
-    Brackup::ProcManager->add_handler($self, 'target_daemon_handler');
+    $self->{daemons} = $confsec->value("daemons") || '0';
+    $self->{childgroup} = ref($class) ? ref($class) : $class;
+    Brackup::ProcManager->set_maximum($self->{childgroup}, $self->{daemons});
 
     return $self;
 }
@@ -75,6 +77,56 @@ sub load_chunk {
 sub store_chunk {
     my ($self, $chunk) = @_;
     die "ERROR: store_chunk not implemented in sub-class $self";
+}
+
+# Call this from the implementation of store_chunk to use parallelised storing
+# In this case, put the storing logic in _store_chunk in the subclass
+sub daemonised_store_chunk {
+    my ($self, $schunk) = @_;
+
+    if(!$self->{daemons}) {
+        if($self->_store_chunk($schunk)) {
+            $schunk->add_me_to_inventory($self);
+            return 1;
+        }
+        else {
+           return 0;
+        }
+    }
+
+    # FIXME:
+    # Check for a child process already storing $self->chunkpath( $schunk->backup_digest ) but not yet
+    # having returned causing the parent to update the inventory.
+
+    Brackup::ProcManager->start_child($self->{childgroup}, $self, 'store_daemon_handler', {'schunk'=>$schunk});
+    return 1;
+}
+
+sub store_daemon_handler {
+    my ($self, $flag, $data) = @_;
+
+    if($flag eq 'inchild'){
+
+        my $schunk = $data->{data}->{schunk};
+        $0 .= " Storing schunk " . $schunk->backup_digest;
+        return $self->_store_chunk($schunk) ? 0 : -1; # process return code
+
+    }
+    elsif($flag eq 'childexit'){
+
+        $data->{data}->{schunk}->add_me_to_inventory($self);
+
+    }
+}
+
+sub _store_chunk {
+    my ($self, $chunk) = @_;
+    die "ERROR: store_chunk not implemented in sub-class $self";
+}
+
+sub wait_for_kids {
+    my $self = shift;
+    Brackup::ProcManager->wait_for_all_children( $self->{childgroup} );
 }
 
 # returns true on success, or returns false or dies otherwise.
@@ -130,32 +182,6 @@ sub get_backup {
 sub delete_backup {
     my ($self, $name) = @_;
     die "ERROR: delete_backup method not implemented in sub-class $self";
-}
-
-# waits for excess child processes to die, catches them and calls the reaper
-sub wait_for_kids {
-    my $self = shift;
-    my $maxkids = shift;
-
-    while( scalar( keys %{ $self->{'children'} } ) > $maxkids ) {
-        Brackup::ProcManager->wait_for_kid(1);
-    }
-}
-
-sub target_daemon_handler {
-    my ($self, $pid, $ret) = @_;
-
-    return (undef, undef) unless $self->{children}->{$pid};
-
-    $self->wait_found_kid($pid, $ret);
-    delete $self->{children}->{$pid};
-    return (1, $pid);
-}
-
-# processes reaped child
-sub wait_found_kid {
-    my ($self, $name, $ret) = @_;
-    die "ERROR: wait_found_kid method not implemented in sub-class '" . ref($self) . "'";
 }
 
 # removes old metafiles from this target
