@@ -44,6 +44,7 @@ sub set_maximum {
 # - pid
 # - fh (only available at inparent)
 # - ret => $? (only available at childexit)
+# - retcode => ($? >> 8) & 255
 
 sub start_child {
     my $class = shift;
@@ -99,6 +100,7 @@ sub wait_for_child {
     # warn "Child exited in group '$CHILDREN{$pid}->{group}' '$pid'\n";
 
     $CHILDREN{$pid}->{ret} = $?;
+    $CHILDREN{$pid}->{retcode} = ($CHILDREN{$pid}->{ret} >> 8) & 255;
     $CHILD_GROUP_COUNT{ $CHILDREN{$pid}->{group} }--;
     my $method = $CHILDREN{$pid}->{method};
     my $r = $CHILDREN{$pid}->{obj}->$method('childexit', $CHILDREN{$pid});

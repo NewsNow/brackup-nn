@@ -114,7 +114,12 @@ sub store_daemon_handler {
     }
     elsif($flag eq 'childexit'){
 
-        $data->{data}->{schunk}->add_me_to_inventory($self);
+        if($data->{retcode}==0){
+            $data->{data}->{schunk}->add_me_to_inventory($self);
+        }
+        else{
+            die "Failed to store chunk\n";
+        }
 
     }
 }

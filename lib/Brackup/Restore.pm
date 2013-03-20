@@ -380,7 +380,7 @@ sub restore_daemon_handler {
         return -1;
     }
     elsif($flag eq 'childexit'){
-        my $code = ($data->{ret} >> 8) & 255;
+        my $code = $data->{retcode};
         my $fh = $data->{fh};
         local $/;
         my $r = <$fh>;
