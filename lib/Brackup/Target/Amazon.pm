@@ -44,10 +44,14 @@ sub new {
     $self->{prefix} = $confsec->value("aws_prefix") || $self->{access_key_id};
     $self->{location} = $confsec->value("aws_location") || undef;
     $self->{backup_prefix} = $confsec->value("backup_prefix") || undef;
+    $self->{backup_path_prefix} = $confsec->value("backup_path_prefix") || 'backups/';
+    $self->{chunk_path_prefix} = $confsec->value("chunk_path_prefix") || 'chunks/';
+    $self->{daemons} = $confsec->value("daemons") || '0';
 
     $self->_common_s3_init;
 
     my $s3      = $self->{s3};
+    
     my $buckets = $s3->buckets or die "Failed to get bucket list";
 
     unless (grep { $_->{bucket} eq $self->{chunk_bucket} } @{ $buckets->{buckets} }) {
@@ -124,7 +128,7 @@ sub has_chunk {
     my ($self, $chunk) = @_;
     my $dig = $chunk->backup_digest;   # "sha1:sdfsdf" format scalar
 
-    my $res = eval { $self->{s3}->head_key({ bucket => $self->{chunk_bucket}, key => $dig }); };
+    my $res = eval { $self->{s3}->head_key({ bucket => $self->{chunk_bucket}, key => $self->chunkpath($dig) }); };
     return 0 unless $res;
     return 0 if $@ && $@ =~ /key not found/;
     return 0 unless $res->{content_type} eq "x-danga/brackup-chunk";
@@ -135,25 +139,104 @@ sub load_chunk {
     my ($self, $dig) = @_;
     my $bucket = $self->{s3}->bucket($self->{chunk_bucket});
 
-    my $val = $bucket->get_key($dig)
+    my $val = $bucket->get_key($self->chunkpath($dig))
         or return 0;
     return \ $val->{value};
 }
 
 sub store_chunk {
+    my ($self, $schunk, $pchunk) = @_;
+    
+    use POSIX ":sys_wait_h";
+    
+    my $k = $pchunk->inventory_key;
+    my $v = $schunk->inventory_value;
+
+    # FIXME:
+    # I'm unsure if it matters that $fh is advanced in the child not the parent - does the parent rely on $fh moving forwards?
+    # If so, easy alternative implementation: set these variables here, and pass them into _store_chunk
+    # instead of obtaining them within the child.
+    # 
+    # my $dig = $schunk->backup_digest;
+    # my $fh = $schunk->chunkref;
+    # my $chunkref = do { local $/; <$fh> };
+    
+    # Enable this if block to test original non-forking behaviour
+    if(!$self->{daemons}) {
+	if($self->_store_chunk($schunk)) {
+	# if($self->_store_chunk($schunk, $dig, $chunkref)) {
+	    $self->add_to_inventory($pchunk, $schunk);
+	    return 1;
+	}
+	else {
+	    return 0;
+	}
+    }
+    
+    # FIXME:
+    # Check for a child process already storing $self->chunkpath( $schunk->backup_digest ) but not yet
+    # having returned causing the parent to update the inventory.
+    
+    $self->wait($self->{daemons}-1);
+    
+    if(my $pid = fork) {
+	$self->{children}->{$pid} = {'schunk' => $schunk, 'pchunk' => $pchunk};
+	# print STDERR "Forked PID $pid for $k => $v\n";
+    }
+    else {
+	$0 .= " $k => $v";
+	my $C = $self->_store_chunk($schunk) ? 0 : -1;
+	# my $C = $self->_store_chunk($schunk, $dig, $chunkref) ? 0 : -1;
+	# print STDERR "Child PID $$ for $k => $v EXITING CODE $C\n";
+	
+	# See http://perldoc.perl.org/perlfork.html
+	# On some operating systems, notably Solaris and Unixware, calling exit()
+	# from a child process will flush and close open filehandles in the parent,
+	# thereby corrupting the filehandles. On these systems, calling _exit() is
+	# suggested instead.
+	_exit($C);
+    }
+
+    return 1;
+}
+
+sub wait {
+    my $self = shift;
+    my $maxkids = shift;
+    
+    while( scalar( keys %{ $self->{'children'} } ) > $maxkids ) {
+	# print STDERR "Waiting for PIDs " . join(' ', sort keys %{ $self->{'children'} }) . "\n";
+	if(my $pid = wait) {
+	    # print STDERR "Got PID $pid\n";
+	    if($pid != -1 && $self->{children}->{$pid}) {
+		if($? == 0) {
+		    # print STDERR "For PID $pid for " . $self->{children}->{$pid}->{pchunk}->inventory_key . " => " . $self->{children}->{$pid}->{schunk}->inventory_value .
+		    #   " RETURNED TRUE\n";
+		    $self->add_to_inventory($self->{children}->{$pid}->{pchunk} => $self->{children}->{$pid}->{schunk});
+		}
+		delete $self->{children}->{$pid};
+	    }
+	}
+    }
+}
+    
+sub _store_chunk {
     my ($self, $chunk) = @_;
+    # my ($self, $chunk, $dig, $chunkref) = @_;
     my $dig = $chunk->backup_digest;
     my $fh = $chunk->chunkref;
     my $chunkref = do { local $/; <$fh> };
-
+    
     my $try = sub {
         eval {
-            $self->{s3}->add_key({
-                bucket        => $self->{chunk_bucket},
-                key           => $dig,
-                value         => $chunkref,
-                content_type  => 'x-danga/brackup-chunk',
-            });
+	    my $bucket = $self->{s3}->bucket($self->{chunk_bucket});
+            my $r = $bucket->add_key(
+		$self->chunkpath($dig),
+		$chunkref,
+                { content_type  => 'x-danga/brackup-chunk' }
+            );
+	    # print STDERR "_store_chunk returned $r\n";
+	    return $r;
         };
     };
 
@@ -178,7 +261,7 @@ sub store_chunk {
 sub delete_chunk {
     my ($self, $dig) = @_;
     my $bucket = $self->{s3}->bucket($self->{chunk_bucket});
-    return $bucket->delete_key($dig);
+    return $bucket->delete_key($self->chunkpath($dig));
 }
 
 # returns a list of names of all chunks
@@ -186,22 +269,26 @@ sub chunks {
     my $self = shift;
 
     my $chunks = $self->{s3}->list_bucket_all({ bucket => $self->{chunk_bucket} });
-    return map { $_->{key} } @{ $chunks->{keys} };
+    my $prefix = $self->{chunk_path_prefix};
+    
+    return grep { $_ } map { $_->{key} =~ m!^\Q$prefix\E(.*)$! ? $1 : ''; } @{ $chunks->{keys} };
 }
 
 sub store_backup_meta {
     my ($self, $name, $fh, $meta) = @_;
-
+    
     $name = $self->{backup_prefix} . "-" . $name if defined $self->{backup_prefix};
 
     eval { 
-        my $bucket = $self->{s3}->bucket($self->{backup_bucket}); 
+        my $bucket = $self->{s3}->bucket($self->{backup_bucket});
+	# print "STORE BACKUP META: $name, $meta->{filename} with name ", $self->backuppath($name),"\n";
         $bucket->add_key_filename(
-            $name,
+            $self->backuppath($name),
             $meta->{filename},
             { content_type => 'x-danga/brackup-meta' },
-        );
+         );
     };
+    if($@) { print STDERR "Error: $@\n"; }
 }
 
 sub backups {
@@ -209,9 +296,13 @@ sub backups {
 
     my @ret;
     my $backups = $self->{s3}->list_bucket_all({ bucket => $self->{backup_bucket} });
+    my $prefix = $self->{backup_path_prefix};
     foreach my $backup (@{ $backups->{keys} }) {
+	my $key = $backup->{key} =~ m!^\Q$prefix\E(.*)$! ? $1 : '';
+	next unless $key;
+	
         my $iso8601 = DateTime::Format::ISO8601->parse_datetime( $backup->{last_modified} );
-        push @ret, Brackup::TargetBackupStatInfo->new($self, $backup->{key},
+        push @ret, Brackup::TargetBackupStatInfo->new($self, $key,
                                                       time => $iso8601->epoch,
                                                       size => $backup->{size});
     }
@@ -223,7 +314,7 @@ sub get_backup {
     my ($name, $output_file) = @_;
 
     my $bucket = $self->{s3}->bucket($self->{backup_bucket});
-    my $val = $bucket->get_key($name)
+    my $val = $bucket->get_key($self->backuppath($name))
         or return 0;
 
 	$output_file ||= "$name.brackup";
@@ -239,21 +330,28 @@ sub delete_backup {
     my $name = shift;
 
     my $bucket = $self->{s3}->bucket($self->{backup_bucket});
-    return $bucket->delete_key($name);
+    return $bucket->delete_key($self->backuppath($name));
 }
 
 sub chunkpath {
     my $self = shift;
     my $dig = shift;
 
-    return $dig;
+    return $self->{chunk_path_prefix} . $dig;
+}
+
+sub backuppath {
+    my $self = shift;
+    my $name = shift;
+
+    return $self->{backup_path_prefix} . $name;
 }
 
 sub size {
     my $self = shift;
     my $dig = shift;
 
-    my $res = eval { $self->{s3}->head_key({ bucket => $self->{chunk_bucket}, key => $dig }); };
+    my $res = eval { $self->{s3}->head_key({ bucket => $self->{chunk_bucket}, key => $self->chunkpath($dig) }); };
     return 0 unless $res;
     return 0 if $@ && $@ =~ /key not found/;
     return 0 unless $res->{content_type} eq "x-danga/brackup-chunk";

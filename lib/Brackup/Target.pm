@@ -169,6 +169,7 @@ sub gc {
     # get all chunks and then loop through metafiles to detect
     # referenced ones
     my %chunks = map {$_ => 1} $self->chunks;
+    
     my $total_chunks = scalar keys %chunks;
     my $tempfile = +(tempfile())[1];
     my @backups = $self->backups;
@@ -177,7 +178,7 @@ sub gc {
         warn sprintf "Collating chunks from backup %s [%d/%d]\n",
             $backup->filename, $i+1, scalar(@backups) 
                 if $opt{verbose};
-        $self->get_backup($backup->filename, $tempfile);
+        $self->get_backup($backup->filename, $tempfile) || die "Couldn't get backup " . $backup->filename;
         my $decrypted_backup = new Brackup::DecryptedFile(filename => $tempfile);
         my $parser = Brackup::Metafile->open($decrypted_backup->name);
         $parser->readline;  # skip header

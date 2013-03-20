@@ -26,6 +26,7 @@ use File::stat;
 use Try::Tiny;
 use Brackup::DecryptedFile;
 use Brackup::Decrypt;
+use POSIX qw(_exit);
 
 sub new {
     my ($class, %opts) = @_;
@@ -162,12 +163,22 @@ sub restore {
             die $_ unless $self->{onerror} eq 'continue';
             push @errors, $_;
         };
+	
+	if(my @waiterrors = $self->wait(15-1)) {
+	    die $waiterrors[0] unless $self->{onerror} eq 'continue';
+	    push @errors, @waiterrors;
+	}
     }
 
     # clear chunk cached by _restore_file
     delete $self->{_cached_dig};
     delete $self->{_cached_dataref};
 
+    if(my @waiterrors = $self->wait(0)) {
+	die $waiterrors[0] unless $self->{onerror} eq 'continue';
+	push @errors, @waiterrors;
+    }
+    
     if ($restore_count) {
         warn " * fixing stat info\n" if $self->{verbose};
         $self->_exec_statinfo_updates;
@@ -345,6 +356,29 @@ sub _restore_fifo {
 
 sub _restore_file {
     my ($self, $full, $it) = @_;
+    
+    use IO::File;
+    my $fh = IO::File->new();
+    if(my $pid = open($fh, '-|')) {
+	$self->{children}->{$pid} = $fh;
+    }
+    else {
+	eval {
+	    $self->__restore_file($full, $it);
+	    # See http://perldoc.perl.org/perlfork.html
+	    # On some operating systems, notably Solaris and Unixware, calling exit()
+	    # from a child process will flush and close open filehandles in the parent,
+	    # thereby corrupting the filehandles. On these systems, calling _exit() is
+	    # suggested instead.
+	    _exit(0);
+	};
+	print $@;
+	_exit(-1);
+    }
+}
+
+sub __restore_file {
+    my ($self, $full, $it) = @_;
 
     if (-e $full && -s $full) {
         die "File $full ($it->{Path}) already exists.  Aborting."
@@ -420,6 +454,35 @@ sub _restore_file {
     $self->_update_statinfo($full, $it);
 }
 
+sub wait {
+    my $self = shift;
+    my $maxkids = shift;
+    
+    my @errors;
+    while( scalar( keys %{ $self->{'children'} } ) > $maxkids ) {
+	# print STDERR "Waiting for PIDs " . join(' ', sort keys %{ $self->{'children'} }) . "\n";
+	if(my $pid = wait) {
+	    if($pid != -1 && $self->{children}->{$pid}) {
+		my $code = ($? >> 8) & 255;
+		local $/;
+		my $fh = $self->{children}->{$pid};
+		my $r = <$fh>;
+		close $fh;
+		
+		push(@errors, $r) if $code != 0;
+		delete $self->{children}->{$pid};
+		
+		# $r =~ s/\n$//s;
+		# print STDERR "For PID $pid, received \"$r\" and exit code $code\n";
+
+	    }
+	}
+    }
+    
+    # print "Returning errors: " . join('|',@errors) . "\n";
+    return @errors;
+}
+    
 # returns iterator subref which returns hashrefs or undef on EOF
 sub parser {
     my $self = shift;

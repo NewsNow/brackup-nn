@@ -263,9 +263,9 @@ sub backup {
             } else {
                 # store it regularly, as its own chunk on the target
                 $self->debug_more("    * storing ... \n");
-                $target->store_chunk($schunk)
+                $target->store_chunk($schunk, $pchunk)
                     or die "Chunk storage failed.\n";
-                $target->add_to_inventory($pchunk => $schunk);
+                # $target->add_to_inventory($pchunk => $schunk);
                 $self->debug_more("    * chunk stored\n");
             }
 
@@ -298,6 +298,9 @@ sub backup {
         $stats->check_maxmem;
         $pchunk->forget_chunkref;
     }
+    
+    $target->wait(0);
+    
     $end_file->();
     $comp_chunk->finalize if $comp_chunk;
     $stats->timestamp('Chunk Storage');
