@@ -18,11 +18,13 @@ package Brackup::GPGProcManager;
 use strict;
 use warnings;
 use Brackup::GPGProcess;
+use Brackup::ProcManager;
 use POSIX ":sys_wait_h";
 
 sub new {
     my ($class, $iter, $target) = @_;
-    return bless {
+
+    my $me = bless {
         chunkiter => $iter,
         procs     => {},  # "addr(pchunk)" => GPGProcess
         target    => $target,
@@ -30,6 +32,22 @@ sub new {
         uncollected_bytes => 0,
         uncollected_chunks => 0,
     }, $class;
+
+    Brackup::ProcManager->add_handler($me, 'child_handler');
+
+    return $me;
+}
+
+sub child_handler {
+    my ($self, $kid, $ret) = @_;
+
+    my $proc = $self->{procs_running}{$kid};
+    return (undef, undef) unless $proc; # unrecognised child
+
+    delete $self->{procs_running}{$proc->pid} or die 'ASSERT';
+    $proc->note_stopped;
+    $self->{uncollected_bytes} += $proc->size_on_disk;
+    return (1, $kid);
 }
 
 sub enc_chunkref_of {
@@ -53,9 +71,8 @@ sub enc_chunkref_of {
         $proc = $self->gen_process_for($pchunk);
     }
 
-    while ($proc->running) {
-        my $pid = $self->wait_for_a_process(1) or die
-            "No processes were reaped!";
+    while ($proc->running) { # wait until this particular process dies
+        my $pid = $self->wait_for_a_process(1) or die "No processes were reaped!";
     }
 
     $self->_proc_summary_dump;
@@ -115,20 +132,8 @@ sub get_proc_chunkref {
 # returns PID of a process that finished
 sub wait_for_a_process {
     my ($self, $block) = @_;
-    my $flags = $block ? 0 : WNOHANG;
-    my $kid = waitpid(-1, $flags);
-    return 0 if ! $block && $kid <= 0;
-    die "no child?" if $kid < 0;
-    return 0 unless $kid;
 
-    my $proc = $self->{procs_running}{$kid} or die "Unknown child
-        process $kid finished!\n";
-
-    delete $self->{procs_running}{$proc->pid} or die;
-    $proc->note_stopped;
-    $self->{uncollected_bytes} += $proc->size_on_disk;
-
-    return $kid;
+    return Brackup::ProcManager->wait_for_kid($block);
 }
 
 sub num_uncollected_bytes { $_[0]{uncollected_bytes} }

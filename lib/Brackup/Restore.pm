@@ -26,6 +26,7 @@ use File::stat;
 use Try::Tiny;
 use Brackup::DecryptedFile;
 use Brackup::Decrypt;
+use Brackup::ProcManager;
 use POSIX qw(_exit);
 
 sub new {
@@ -52,6 +53,8 @@ sub new {
     croak("Unknown options: " . join(', ', keys %opts)) if %opts;
 
     $self->{metafile} = Brackup::DecryptedFile->new(filename => $self->{filename});
+
+    Brackup::ProcManager->add_handler($self, 'restore_daemon_handler');
 
     return $self;
 }
@@ -467,21 +470,27 @@ sub wait_for_kids {
 
     my @errors;
     while( scalar( keys %{ $self->{'children'} } ) > $maxkids ) {
-        if(my $pid = wait) {
-            if($pid != -1 && $self->{children}->{$pid}) {
-                my $code = ($? >> 8) & 255;
-                local $/;
-                my $fh = $self->{children}->{$pid};
-                my $r = <$fh>;
-                close $fh;
-
-                push(@errors, $r) if $code != 0;
-                delete $self->{children}->{$pid};
-            }
-        }
+        my $ret = Brackup::ProcManager->wait_for_kid(1);
+        push @errors, $ret->[0] if $ret && $ret->[1] != 0; # set by restore_daemon_handler
     }
 
     return @errors;
+}
+
+sub restore_daemon_handler {
+    my ($self, $pid, $ret) = @_;
+
+    return (undef, undef) unless $self->{children}->{$pid};
+
+    my $code = ($ret >> 8) & 255;
+    local $/;
+    my $fh = $self->{children}->{$pid};
+    my $r = <$fh>;
+    close $fh;
+
+    delete $self->{children}->{$pid};
+
+    return (1, [$r, $code]);
 }
 
 # returns iterator subref which returns hashrefs or undef on EOF

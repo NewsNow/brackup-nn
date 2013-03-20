@@ -22,6 +22,7 @@ use Brackup::InventoryDatabase;
 use Brackup::TargetBackupStatInfo;
 use Brackup::Util 'tempfile';
 use Brackup::DecryptedFile;
+use Brackup::ProcManager;
 use Carp qw(croak);
 
 sub new {
@@ -40,6 +41,8 @@ sub new {
                                         $confsec->value("inventory_db") ||
                                         "$ENV{HOME}/.brackup-target-$self->{name}.invdb",
                                         $confsec);
+
+    Brackup::ProcManager->add_handler($self, 'target_daemon_handler');
 
     return $self;
 }
@@ -135,19 +138,24 @@ sub wait_for_kids {
     my $maxkids = shift;
 
     while( scalar( keys %{ $self->{'children'} } ) > $maxkids ) {
-        if(my $pid = wait) {
-            if($pid != -1 && $self->{children}->{$pid}) {
-                $self->wait_found_kid($pid, $?);
-                delete $self->{children}->{$pid};
-            }
-        }
+        Brackup::ProcManager->wait_for_kid(1);
     }
+}
+
+sub target_daemon_handler {
+    my ($self, $pid, $ret) = @_;
+
+    return (undef, undef) unless $self->{children}->{$pid};
+
+    $self->wait_found_kid($pid, $ret);
+    delete $self->{children}->{$pid};
+    return (1, $pid);
 }
 
 # processes reaped child
 sub wait_found_kid {
-    my ($self, $name) = @_;
-    die "ERROR: wait_found_kid method not implemented in sub-class $self";
+    my ($self, $name, $ret) = @_;
+    die "ERROR: wait_found_kid method not implemented in sub-class '" . ref($self) . "'";
 }
 
 # removes old metafiles from this target
