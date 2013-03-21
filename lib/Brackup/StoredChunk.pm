@@ -198,7 +198,7 @@ sub set_encrypted_chunkref {
     die "ASSERT: already set?" if $self->{backlength} || $self->{backdigest};
 
     die "ASSERT: Raw digest has not been calculated yet (2)" unless $self->{pchunk}->has_raw_digest();
-    $self->{backdigest} = $self->{pchunk}->raw_digest();
+    $self->{backdigest} = "sha1:" . io_sha1($fh);
     $self->{backlength} = $enc_length;
 
     return $self->{_chunkref} = $fh;
