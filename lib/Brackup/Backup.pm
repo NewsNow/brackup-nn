@@ -218,6 +218,8 @@ sub backup {
                 $start_file->($pchunk->file);
             }
 
+            # WARNING The checks here are coupled to the ones in GPGProcManager::next_chunk_to_encrypt
+
             # have we already stored this chunk before?  (iterative backup)
             my $schunk;
             if ($schunk = $target->stored_chunk_from_inventory($pchunk)) {

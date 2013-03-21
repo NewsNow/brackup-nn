@@ -142,8 +142,11 @@ sub next_chunk_to_encrypt {
     while (my $ev = $self->{chunkiter}->next) {
         next if $ev->isa("Brackup::File");
         my $pchunk = $ev;
-        # TODO Checks here should mirror ones in Backup.pm
+
+        # WARNING The checks here are coupled to the ones in Backup::backup
+
         next if $self->{target}->stored_chunk_from_inventory($pchunk);
+        next if $self->{target}->is_pchunk_being_stored($pchunk);
         return $pchunk;
     }
     return undef;
