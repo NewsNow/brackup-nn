@@ -118,15 +118,50 @@ sub io_print_to_fh {
 # computes sha1 of data in an IO::Handle
 sub io_sha1 {
     my ($io_handle) = @_;
-    
+
     my $sha1 = Digest::SHA1->new;
     my $buf;
-    
+
     while($io_handle->read($buf, 4096)) {
         $sha1->add($buf);
     }
 
     return $sha1->hexdigest;
+}
+
+sub unix2human {
+   my ($t) = @_;
+   my @GMT = gmtime($t);
+   return sprintf( "%04d%02d%02d%02d%02d%02d", $GMT[5] + 1900, $GMT[4] + 1, @GMT[ 3, 2, 1, 0 ] );
+}
+
+sub human2unix {
+    my $s = shift;
+
+   my ($Tm) = @_;
+
+   # Remove all non-numeric characters
+   $Tm =~ s/\D//g;
+
+   # Extract year, month, day, hours, mins and secs from date string
+   my ( $year, $mon, $day, $hour, $min, $sec ) = $Tm =~ /^(\d\d\d\d)(\d\d)(\d\d)(\d\d)(\d\d)(\d\d)$/;
+
+   # If the regular expression didn't match, then we don't have a valid date string.
+   return undef unless $&;
+
+   # Convert date elements above into Unix timestamp. For 'explanation'
+   # of this see this Linux patch description:
+   #
+   #   http://www.linuxhq.com/kernel/v2.2/patch/patch-2.2.18/linux_arch_m68k_mac_config.c.html
+
+   if( 0 >= ( $mon -= 2 ) ) {    # /* 1..12 -> 11,12,1..10 */
+      $mon += 12;                # /* Puts Feb last since it has leap day */
+      $year -= 1;
+   }
+   return (
+      ( ( ( int( $year / 4 ) - int( $year / 100 ) + int( $year / 400 ) + int( 367 * $mon / 12 ) + $day ) + $year * 365 - 719499 ) * 24 + $hour    # /* now have hours */
+      ) * 60 + $min                                                                                                                                # /* now have minutes */
+   ) * 60 + $sec;                                                                                                                                  # /* finally seconds */
 }
 
 1;

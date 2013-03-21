@@ -79,7 +79,7 @@ sub backup {
     my $n_files_done = 0;   # int
     my @files;         # Brackup::File objs
 
-    my $meta_name = $self->{root}->publicname . "-" . $self->{target}->name . "-" . $self->backup_time . '.brackup';
+    my $meta_name = $self->{root}->publicname . "-" . $self->{target}->name . "-" . $self->backup_time_str . '.brackup';
     my $backup_file = File::Spec->catfile($meta_dir || '', $meta_name);
     $backup_file = noclobber_filename($backup_file); # just in case
 
@@ -363,9 +363,9 @@ sub backup {
                    @recipients,
                    "--trust-model=always",
                    "--batch",
-                   "--encrypt", 
-                   "--output=$encfile", 
-                   "--yes", 
+                   "--encrypt",
+                   "--output=$encfile",
+                   "--yes",
                    $backup_file)
                 and die "Failed to run gpg while encryping metafile: $!\n";
             open ($store_fh, $encfile) or die "Failed to open encrypted metafile '$encfile': $!\n";
@@ -460,11 +460,15 @@ sub backup_time {
     return $self->{backup_time} ||= time();
 }
 
+sub backup_time_str {
+    return Brackup::Util::unix2human( $_[0]->backup_time() );
+}
+
 sub backup_header {
     my $self = shift;
     my $ret = "";
     my $now = $self->backup_time;
-    $ret .= "BackupTime: " . $now . " (" . localtime($now) . ")\n";
+    $ret .= "BackupTime: " . $now . " (" . $self->backup_time_str . ")\n";
     $ret .= "BackupDriver: " . ref($self->{target}) . "\n";
     if (my $fields = $self->{target}->backup_header) {
         foreach my $k (sort keys %$fields) {

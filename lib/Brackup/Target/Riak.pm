@@ -81,14 +81,14 @@ sub backup_header {
 sub new_from_backup_header {
     my ($class, $header, $confsec) = @_;
 
-    my $host_url =      ($ENV{'RIAK_HOST_URL_LIST'} || 
-                         $header->{RiakHostUrl} || 
-                         $confsec->value('riak_host_url') || 
+    my $host_url =      ($ENV{'RIAK_HOST_URL_LIST'} ||
+                         $header->{RiakHostUrl} ||
+                         $confsec->value('riak_host_url') ||
                          'http://127.0.0.1:8098');
     my $r =             ($ENV{RIAK_R} ||
                          $header->{RiakR} ||
                          $confsec->value('riak_r'));
-    my $bucket_prefix = ($ENV{'RIAK_BUCKET_PREFIX'} || 
+    my $bucket_prefix = ($ENV{'RIAK_BUCKET_PREFIX'} ||
                          $header->{RiakBucketPrefix} ||
                          $confsec->value('riak_bucket_prefix') ||
                          'brackup');
@@ -199,7 +199,7 @@ sub delete_chunk {
 sub chunks {
     my $self = shift;
 
-    my $chunks = $self->_retry("loading chunks", 
+    my $chunks = $self->_retry("loading chunks",
         sub { $self->{bucket}->{chunk}->get_keys({stream => 1}) },
         sub { my $chunks = shift; $chunks && ref $chunks eq 'ARRAY' },
     );
@@ -218,7 +218,7 @@ sub store_backup_meta {
 sub backups {
     my $self = shift;
 
-    my $backups = $self->_retry("loading backups", 
+    my $backups = $self->_retry("loading backups",
         sub { $self->{bucket}->{backup}->get_keys({stream => 1}) },
         sub { my $backups = shift; $backups && ref $backups eq 'ARRAY' },
     );
@@ -228,7 +228,7 @@ sub backups {
         # Riak has no explicit mtime/size metadata
         my @elements = split /-/, $backup;
         push @ret, Brackup::TargetBackupStatInfo->new($self, $backup,
-                                                      time => $elements[$#elements],
+                                                      time => Brackup::Util::human2unix($elements[$#elements]),
                                                       size => 0);
     }
 
@@ -299,19 +299,19 @@ I<(Mandatory.)> Must be "B<Riak>".
 
 URL specifying your riak cluster endpoint. Default: http://127.0.0.1:8098/.
 
-=item B<riak_r> 
+=item B<riak_r>
 
-riak read quorum - how many replicas need to agree when retrieving an object. 
+riak read quorum - how many replicas need to agree when retrieving an object.
 Default: 2.
 
-=item B<riak_w> 
+=item B<riak_w>
 
-riak write quorum - how many replicas to write to before returning success. 
+riak write quorum - how many replicas to write to before returning success.
 Default: 2.
 
-=item B<riak_dw> 
+=item B<riak_dw>
 
-riak durable write quorum - how many replicas to write to durable storage 
+riak durable write quorum - how many replicas to write to durable storage
 before returning success. Default: 2.
 
 =item B<riak_bucket_prefix>
@@ -333,7 +333,7 @@ Gavin Carr E<lt>gavin@openfusion.com.auE<gt>.
 
 Copyright (c) 2010 Gavin Carr.
 
-This module is free software. You may use, modify, and/or redistribute 
+This module is free software. You may use, modify, and/or redistribute
 this software under the same terms as perl itself.
 
 =cut
