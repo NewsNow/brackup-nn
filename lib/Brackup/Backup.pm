@@ -235,6 +235,7 @@ sub backup {
             # that we know the handle for it, its digest)
             if ($comp_chunk && ($schunk = $comp_chunk->stored_chunk_from_dup_internal_raw($pchunk))) {
                 $pchunk->forget_chunkref;
+                ## ! $schunk in a composite chunk returns the digest of the composite chunk
                 push @stored_chunks, $schunk;
                 $self->debug_more('Component chunk already stored');
                 return 2;
@@ -243,6 +244,7 @@ sub backup {
             # Check if there are any target daemons currently storing the $pchunk
             if( $schunk = $target->is_pchunk_being_stored($pchunk) ){
                 $pchunk->forget_chunkref;
+                ## ! $schunk in a composite chunk returns the digest of the composite chunk
                 push @stored_chunks, $schunk;
                 $self->debug_more('Chunk is already being stored by another daemon');
                 return 2;
