@@ -206,6 +206,24 @@ sub chunks {
     return grep { $_ } map { $_->{key} =~ m!^\Q$prefix\E(.*)$! ? $1 : ''; } @{ $chunks->{keys} };
 }
 
+# Return a hashref { <NAME> => <LENGTH>, ... }
+sub chunks_with_length {
+    my $self = shift;
+
+    my %r;
+
+    my $chunks = $self->{s3}->list_bucket_all({ bucket => $self->{chunk_bucket} });
+    my $prefix = $self->{chunk_path_prefix};
+
+    foreach my $k (@{ $chunks->{keys} }){
+        my $name = $k->{key};
+        $name =~ s/^\Q$prefix\E//g;
+        $r{$name} = $k->{size};
+    }
+
+    return \%r;
+}
+
 sub store_backup_meta {
     my ($self, $name, $fh, $meta) = @_;
 

@@ -215,6 +215,7 @@ sub gid {
     return $self->stat->gid;
 }
 
+# {METASYNTAX}
 sub as_rfc822 {
     my ($self, $schunk_list, $backup) = @_;
     my $ret = "";

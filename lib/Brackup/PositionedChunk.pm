@@ -127,6 +127,7 @@ sub raw_chunkref {
 }
 
 # useful string for targets to key on.  of one of the forms:
+# {INVSYNTAX} (search for this label to see where else this syntax is used)
 #    "<digest>;to=<enc_to>"
 #    "<digest>;raw"
 #    "<digest>;gz"   (future)

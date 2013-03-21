@@ -44,6 +44,7 @@ sub pchunk { $_[0]{pchunk} }
 # create the 'lite' or 'handle' version of a storedchunk.  can't get to
 # the chunkref from this, but callers aren't won't.  and we'll DIE if they
 # try to access the chunkref.
+# {INVSYNTAX}
 sub new_from_inventory_value {
     my ($class, $pchunk, $invval) = @_;
 
@@ -212,6 +213,10 @@ sub forget_chunkref {
 }
 
 # to the format used by the metafile
+# {METASYNTAX} (search for this label to see where else this syntax is used)
+# In composite: <p-offset> ; <p-length> ; <range>    ; <s-digest>
+# Else:         <p-offset> ; <p-length> ; <s-length> ; <s-digest>
+# If encrypted & multiple chunks: + ; <raw-digest>
 sub to_meta {
     my $self = shift;
     my @parts = ($self->{pchunk}->offset,
@@ -246,6 +251,7 @@ sub to_meta {
 }
 
 # aka "instructions to attach to a pchunk, on how to recover the pchunk from a target"
+# {INVSYNTAX} (search for this label to see where else this syntax is used)
 sub inventory_value {
     my $self = shift;
 

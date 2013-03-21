@@ -407,6 +407,7 @@ sub __restore_file {
     binmode($fh);
     my @chunks = grep { $_ } split(/\s+/, $it->{Chunks} || "");
     foreach my $ch (@chunks) {
+        # {METASYNTAX}  (search for this label to see where else this syntax is used)
         my ($offset, $len, $enc_len, $dig) = split(/;/, $ch);
 
         # we process files sorted by the dig of their first chunk, caching

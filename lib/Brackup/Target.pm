@@ -294,6 +294,176 @@ sub prune {
     return scalar @backups_to_delete;
 }
 
+# Opens all metafiles and loops through their sections
+# &$callback( $meta_file_item, $is_header, $backup_name ) is called for each item in each backup
+sub loop_items_in_backups {
+    my $self = shift;
+    my $callback = shift;
+    my $opt = shift;
+    ##
+    # meta_dir -- if specified, attempt to read local metafiles
+    # verbose
+
+    my $tempfile = +(tempfile())[1];
+    my @backups = $self->backups;
+    foreach my $i (0 .. $#backups) {
+        my $backup = $backups[$i];
+        warn sprintf "Reading backup %s [%d/%d]\n", $backup->filename, $i+1, scalar(@backups)
+            if $opt->{verbose};
+        my $parser;
+        # Try local file
+        if( $opt->{meta_dir} ){
+            my $localfile = File::Spec->catfile($opt->{meta_dir}, $backup->filename);
+            $parser = Brackup::Metafile->open($localfile) if(-e $localfile);
+        }
+        # If failed or not available:
+        unless($parser){
+            warn "Could not find local metafile; falling back to loading it from the target.\n" if $opt->{meta_dir};
+            $self->get_backup($backup->filename, $tempfile) || die "Couldn't load backup from target " . $backup->filename;
+            my $decrypted_backup = new Brackup::DecryptedFile(filename => $tempfile);
+            $parser = Brackup::Metafile->open($decrypted_backup->name);
+
+        }
+        my $is_header = 1;
+        while (my $it = $parser->readline) {
+            &$callback($it, $is_header, $backup->filename);
+            $is_header = 0;
+        }
+    }
+
+}
+
+sub sync_inv {
+    my $self = shift;
+    my $opts = shift;
+    ##
+    # meta_dir
+    # verbose
+    # dryrun
+
+    warn "Syncing the inventory starts " . ($opts->{dryrun} ? '(DRY RUN)' : '') . "\n";
+
+    my $errors = 0;
+    my $gpg_rec;
+
+    # Get a list of chunks on the target with their size
+    my $CHUNKS = $self->chunks_with_length;
+
+    # Loop through all backup files and recreate the inventory
+    my %INV;
+
+    $self->loop_items_in_backups(sub{
+        my $item = shift;
+        my $is_header = shift;
+        my $backupname = shift;
+
+        if($is_header){
+            $gpg_rec = $item->{'GPG-Recipient'};
+            return;
+        }
+
+        return unless $item->{Chunks}; # skip non-file entries
+
+        my $filedigest = $item->{Digest} || die "Cannot find file digest in an item in '$backupname'";
+        my $singlechunk;
+
+        foreach my $filechunk (split(/\s+/, $item->{Chunks})){
+
+            # {METASYNTAX} (search for this label to see where else this syntax is used) -- see Brackup::StoredChunk::to_meta
+
+            my @labels = ('p_offset', 'p_length', 'range_or_s_length', 's_digest', 'p_digest');
+            my %chunkdata = ();
+            my $i = 0;
+            foreach my $d (split(/;/, $filechunk)){
+                $d =~ s/^\s+|\s+$//g;
+                die "Cannot find '$labels[$i]' in '$filechunk' in '$backupname'" unless defined $d;
+                $chunkdata{$labels[$i]} = $d;
+                $i++;
+            }
+
+            unless($chunkdata{p_digest}){
+                $singlechunk = 1;
+                $chunkdata{p_digest} = $filedigest;
+            }
+
+            if($chunkdata{range_or_s_length} =~ /^(\d+)-(\d+)$/){
+                $chunkdata{s_range} = $chunkdata{range_or_s_length};
+                $chunkdata{s_length} = $2 - $1;
+            }else{
+                $chunkdata{s_length} = $chunkdata{range_or_s_length};
+            }
+
+            # Check the chunk on the target
+
+            my $size_on_target = $CHUNKS->{ $chunkdata{s_digest} };
+            unless($size_on_target){
+                warn "*** Chunk '$chunkdata{s_digest}' in metafile '$backupname' is missing from the target!\n";
+                $errors++;
+                warn " Skipping this chunk\n";
+                next;
+            }
+
+            unless($size_on_target == $chunkdata{s_length}){
+                warn "*** Chunk '$chunkdata{s_digest}' in metafile '$backupname' has the wrong size on the target!\n";
+                warn "  Size in metafile: '$chunkdata{s_length}'\n  Size on target: '$size_on_target'\n";
+                $errors++;
+                warn " Skipping this chunk\n";
+                next;
+            }
+
+            # {INVSYNTAX} (search for this label to see where else this syntax is used)
+
+            my $db_key = $chunkdata{p_digest};
+            $db_key .= $gpg_rec ? ';to=' . $gpg_rec : ';raw';
+
+            my $db_value = $chunkdata{s_digest} . ' ' . $chunkdata{s_length};
+            $db_value .= ' ' . $chunkdata{s_range} if $chunkdata{s_range};
+
+            $INV{$db_key} = $db_value;
+        }
+    }, $opts);
+
+    # Check the inventory
+
+    while (my ($key, $curval) = $self->inventory_db->each) {
+        my $bkpval = $INV{$key};
+        if($bkpval){
+            if($curval eq $bkpval){
+                delete $INV{$key};
+            }
+            else{
+                warn "Entry mismatch for '$key'\n  Currently in the inventory: '$curval'\n  Constructed from backups: '$bkpval'\n";
+                $errors++;
+                unless($opts->{dryrun}){
+                    warn " Overwriting\n";
+                    $self->inventory_db->set($key, $bkpval);
+                }
+            }
+        }
+        else{
+            warn "Chunk in inventory missing on target '$key' => '$curval'\n";
+            $errors++;
+            unless($opts->{dryrun}){
+                warn " Deleting\n";
+                $self->inventory_db->delete($key);
+            }
+        }
+    }
+
+    foreach my $key (keys %INV){
+        my $bkpval = $INV{$key};
+        warn "Chunk on target '$key' missing from inventory\n  Constructed from backups: '$bkpval'\n" if $opts->{verbose};
+        $errors++;
+        unless($opts->{dryrun}){
+            warn " Adding\n" if $opts->{verbose};
+            $self->inventory_db->set($key, $bkpval);
+        }
+    }
+
+    warn "Syncing the inventory complete " . ($opts->{dryrun} ? '(DRY RUN)' : '') . "\n";
+    warn "  Encountered '$errors' errors.\n";
+}
+
 # removes orphaned chunks in the target
 sub gc {
     my ($self, %opt) = @_;
@@ -303,23 +473,17 @@ sub gc {
     my %chunks = map {$_ => 1} $self->chunks;
 
     my $total_chunks = scalar keys %chunks;
-    my $tempfile = +(tempfile())[1];
-    my @backups = $self->backups;
-    BACKUP: foreach my $i (0 .. $#backups) {
-        my $backup = $backups[$i];
-        warn sprintf "Collating chunks from backup %s [%d/%d]\n",
-            $backup->filename, $i+1, scalar(@backups)
-                if $opt{verbose};
-        $self->get_backup($backup->filename, $tempfile) || die "Couldn't get backup " . $backup->filename;
-        my $decrypted_backup = new Brackup::DecryptedFile(filename => $tempfile);
-        my $parser = Brackup::Metafile->open($decrypted_backup->name);
-        $parser->readline;  # skip header
-        ITEM: while (my $it = $parser->readline) {
-            next ITEM unless $it->{Chunks};
-            my @item_chunks = map { (split /;/)[3] } grep { $_ } split(/\s+/, $it->{Chunks} || "");
-            delete $chunks{$_} for (@item_chunks);
-        }
-    }
+
+    $self->loop_items_in_backups( $opt{meta_dir}, sub{
+        my $it = shift;
+        my $is_header = shift;
+        return if $is_header;
+        return unless $it->{Chunks}; # skip non-file entries
+        # {METASYNTAX}
+        my @item_chunks = map { (split /;/)[3] } grep { $_ } split(/\s+/, $it->{Chunks} || "");
+        delete $chunks{$_} for (@item_chunks);
+    }, \%opt);
+
     my @orphaned_chunks = keys %chunks;
 
     # report orphaned chunks
