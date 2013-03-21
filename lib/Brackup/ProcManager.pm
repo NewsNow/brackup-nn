@@ -7,11 +7,13 @@
 # <gavin@openfusion.com.au> (see code for details).  Brackup is licensed for
 # use, modification and/or distribution under the same terms as Perl itself.
 #
-# This file was forked from Brackup on 18 March 2013 and changed on and since
+# brackup-nn was forked from Brackup on 18 March 2013 and changed on and since
 # this date by NewsNow Publishing Limited to effect bug fixes, reliability
 # stability and/or performance improvements, and/or feature enhancements;
 # and such changes are copyright (c) 2013 NewsNow Publishing Limited.  You may
 # use, modify, and/or redistribute brackup-nn under the same terms as Perl itself.
+#
+# This file is a new addition to brackup-nn.
 #
 
 package Brackup::ProcManager;
@@ -115,7 +117,7 @@ sub wait_for_extra_children {
     my $group = shift;
 
     if($CHILD_GROUP_MAX{$group}){
-        while(($CHILD_GROUP_COUNT{$group} || 0) > $CHILD_GROUP_MAX{$group}){
+        while(($CHILD_GROUP_COUNT{$group} || 0) >= $CHILD_GROUP_MAX{$group}){
             $class->wait_for_child(1);
         }
     }

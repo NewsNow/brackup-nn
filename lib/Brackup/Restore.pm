@@ -53,7 +53,7 @@ sub new {
 
     $self->{metafile} = Brackup::DecryptedFile->new(filename => $self->{filename});
 
-    Brackup::ProcManager->set_maximum('restore', $self->{daemons}-1) if $self->{daemons};
+    Brackup::ProcManager->set_maximum('restore', $self->{daemons}) if $self->{daemons};
     $self->{childerrors} = [];
 
     return $self;
