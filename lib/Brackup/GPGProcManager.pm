@@ -34,9 +34,7 @@ sub new {
         uncollected_chunks => 0,
     }, $class;
 
-    # First, we start with a maximum of 1 so that there wouldn't be multiple pinentries started
-    # when decrypting
-    Brackup::ProcManager->set_maximum('gpg', 1);
+    Brackup::ProcManager->set_maximum('gpg', $target->{gpg_daemons});
 
     return $me;
 }
@@ -71,9 +69,6 @@ sub child_handler {
 
     }
     elsif($flag eq 'childexit'){
-
-        # See the constructor
-        Brackup::ProcManager->set_maximum('gpg', 10);
 
         my $pid = $data->{pid};
         my $proc = $self->{procs_running}{$pid};
@@ -121,9 +116,10 @@ sub enc_chunkref_of {
 sub start_some_processes {
     my $self = shift;
 
+    Brackup::ProcManager->wait_for_extra_children('gpg');
+
     my $pchunk;
-    # TODO: make this stuff configurable/auto-tuned
-    while ($self->num_running_procs < 5 &&
+    while ($self->num_running_procs < $self->{target}->{gpg_daemons} &&
            $self->uncollected_chunks < 20 &&
            $self->num_uncollected_bytes < 128 * 1024 * 1024 &&
            ($pchunk = $self->next_chunk_to_encrypt)) {
@@ -146,6 +142,7 @@ sub next_chunk_to_encrypt {
     while (my $ev = $self->{chunkiter}->next) {
         next if $ev->isa("Brackup::File");
         my $pchunk = $ev;
+        # TODO Checks here should mirror ones in Backup.pm
         next if $self->{target}->stored_chunk_from_inventory($pchunk);
         return $pchunk;
     }

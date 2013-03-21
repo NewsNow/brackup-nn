@@ -43,6 +43,7 @@ sub new {
                                         $confsec);
 
     $self->{daemons} = $confsec->value("daemons") || '0';
+    $self->{gpg_daemons} = $confsec->value("gpg_daemons") || '0';
     $self->{childgroup} = ref($class) ? ref($class) : $class;
     Brackup::ProcManager->set_maximum($self->{childgroup}, $self->{daemons});
 
@@ -665,6 +666,14 @@ for any parameters that are not already defined in the current section e.g.:
   [TARGET:ftp_images]
   inherit = ftp_defaults
   path = images
+
+=item B<daemons>
+
+Specifies the maximum number of child processes used to store chunks in parallel.
+
+=item B<gpg_daemons>
+
+Specifies the maximum number of child processes used to encrypt chunks in parallel.
 
 =back
 
