@@ -63,7 +63,9 @@ sub start_child {
     my $fh = IO::File->new();
     if(my $pid = open($fh, '-|')) {
         # in parent
-        # warn "New child in group '$group' '$pid'\n";
+
+        # warn "New child in group '$group' PID '$pid' # '$CHILD_GROUP_COUNT{$group}'\n";
+
         $CHILDREN{$pid} = {
             'pid' => $pid,
             'fh' => $fh,
@@ -99,7 +101,7 @@ sub wait_for_child {
 
     die "Unrecognised child '$pid'" unless $CHILDREN{$pid};
 
-    # warn "Child exited in group '$CHILDREN{$pid}->{group}' '$pid'\n";
+    # warn "Child exited in group '$CHILDREN{$pid}->{group}' PID '$pid' # '$CHILD_GROUP_COUNT{$CHILDREN{$pid}->{group}}'\n";
 
     $CHILDREN{$pid}->{ret} = $?;
     $CHILDREN{$pid}->{retcode} = ($CHILDREN{$pid}->{ret} >> 8) & 255;
