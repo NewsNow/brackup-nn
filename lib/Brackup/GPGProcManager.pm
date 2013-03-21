@@ -34,7 +34,9 @@ sub new {
         uncollected_chunks => 0,
     }, $class;
 
-    Brackup::ProcManager->set_maximum('gpg', 10);
+    # First, we start with a maximum of 1 so that there wouldn't be multiple pinentries started
+    # when decrypting
+    Brackup::ProcManager->set_maximum('gpg', 1);
 
     return $me;
 }
@@ -69,6 +71,9 @@ sub child_handler {
 
     }
     elsif($flag eq 'childexit'){
+
+        # See the constructor
+        Brackup::ProcManager->set_maximum('gpg', 10);
 
         my $pid = $data->{pid};
         my $proc = $self->{procs_running}{$pid};
