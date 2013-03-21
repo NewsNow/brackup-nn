@@ -388,9 +388,15 @@ sub sync_inv {
                 $i++;
             }
 
+            # An explicit p_digest is only added if encrypted AND the file contains one chunk only
             unless($chunkdata{p_digest}){
-                $singlechunk = 1;
-                $chunkdata{p_digest} = $filedigest;
+                if($gpg_rec){
+                    $singlechunk = 1; # used to assert later
+                    $chunkdata{p_digest} = $filedigest;
+                }
+                else{ # Without encryption, the raw digest is the stored digest
+                    $chunkdata{p_digest} = $chunkdata{s_digest};
+                }
             }
 
             if($chunkdata{range_or_s_length} =~ /^(\d+)-(\d+)$/){
