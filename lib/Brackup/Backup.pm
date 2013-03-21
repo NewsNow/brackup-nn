@@ -242,6 +242,8 @@ sub backup {
 
             # Check if there are any target daemons currently storing the $pchunk
             if( $target->is_pchunk_being_stored($pchunk) ){
+                $pchunk->forget_chunkref;
+                push @stored_chunks, $schunk;
                 $self->debug_more('Chunk is already being stored by another daemon');
                 return 2;
             }
