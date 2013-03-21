@@ -266,4 +266,12 @@ sub inventory_value {
     return join(" ", $self->backup_digest, $self->backup_length);
 }
 
+sub has_pchunk {
+    my $self = shift;
+    my $pchunk = shift;
+
+    return 1 if $pchunk->inventory_key eq $self->{pchunk}->inventory_key;
+    return 0;
+}
+
 1;

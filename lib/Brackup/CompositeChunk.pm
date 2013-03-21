@@ -107,11 +107,16 @@ sub stored_chunk_from_dup_internal_raw {
 
 # <duck-typing>
 # make this duck-typed like a StoredChunk, so targets can store it
+
 *backup_digest = \&digest;
+
+*has_pchunk = \&stored_chunk_from_dup_internal_raw;
+
 sub backup_length {
     my $self = shift;
     return $self->{used_up};
 }
+
 # return handle to data
 sub chunkref {
     my $self = shift;
@@ -119,9 +124,11 @@ sub chunkref {
     seek($self->{_chunk_fh}, 0, SEEK_SET);
     return $self->{_chunk_fh};
 }
+
 sub inventory_value {
     die "ASSERT: don't expect this to be called";
 }
+
 # called when chunk data not needed anymore
 sub forget_chunkref {
     my $self = shift;
@@ -132,6 +139,7 @@ sub forget_chunkref {
         delete $self->{_chunk_fh};      # also deletes the temp file
     }
 }
+
 # </duck-typing>
 
 1;

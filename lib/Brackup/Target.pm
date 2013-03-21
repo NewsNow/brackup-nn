@@ -94,13 +94,6 @@ sub daemonised_store_chunk {
         }
     }
 
-    # Check if a child is already storing $schunk
-    my $cur_dig = $schunk->backup_digest;
-    return 1 if Brackup::ProcManager->for_each_child( $self->{childgroup}, sub{
-        return 0 if($_[0]->{data}->{schunk}->backup_digest eq $cur_dig);
-        return 1;
-    });
-
     Brackup::ProcManager->start_child($self->{childgroup}, $self, 'store_daemon_handler', {'schunk'=>$schunk});
 
     return 1;
@@ -160,6 +153,21 @@ sub add_to_inventory {
     my $key  = $pchunk->inventory_key;
     my $db = $self->inventory_db;
     $db->set($key => $schunk->inventory_value);
+}
+
+# Check if a child is already storing a positioned chunk
+sub is_pchunk_being_stored {
+    my $self = shift;
+    my $pchunk = shift;
+
+    return 0 unless $self->{daemons};
+
+    return 1 if Brackup::ProcManager->for_each_child( $self->{childgroup}, sub{
+        return 0 if $_[0]->{data}->{schunk}->has_pchunk($pchunk); # found!
+        return 1;
+    });
+
+    return 0;
 }
 
 # return stored chunk, given positioned chunk, or undef.  no

@@ -236,7 +236,13 @@ sub backup {
             if ($comp_chunk && ($schunk = $comp_chunk->stored_chunk_from_dup_internal_raw($pchunk))) {
                 $pchunk->forget_chunkref;
                 push @stored_chunks, $schunk;
-                $self->debug_more('Composite chunk already stored');
+                $self->debug_more('Component chunk already stored');
+                return 2;
+            }
+
+            # Check if there are any target daemons currently storing the $pchunk
+            if( $target->is_pchunk_being_stored($pchunk) ){
+                $self->debug_more('Chunk is already being stored by another daemon');
                 return 2;
             }
 
