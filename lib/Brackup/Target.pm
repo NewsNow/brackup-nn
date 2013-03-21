@@ -318,6 +318,7 @@ sub loop_items_in_backups {
         }
         # If failed or not available:
         unless($parser){
+            # TODO Optionally die here instead of waiting for a passphrase
             warn "Could not find local metafile; falling back to loading it from the target.\n" if $opt->{meta_dir};
             $self->get_backup($backup->filename, $tempfile) || die "Couldn't load backup from target " . $backup->filename;
             my $decrypted_backup = new Brackup::DecryptedFile(filename => $tempfile);
@@ -366,8 +367,10 @@ sub sync_inv {
 
         my $filedigest = $item->{Digest} || die "Cannot find file digest in an item in '$backupname'";
         my $singlechunk;
+        my $no_filechunks = 0;
 
         foreach my $filechunk (split(/\s+/, $item->{Chunks})){
+            $no_filechunks++;
 
             # {METASYNTAX} (search for this label to see where else this syntax is used) -- see Brackup::StoredChunk::to_meta
 
@@ -397,15 +400,15 @@ sub sync_inv {
 
             my $size_on_target = $CHUNKS->{ $chunkdata{s_digest} };
             unless($size_on_target){
-                warn "*** Chunk '$chunkdata{s_digest}' in metafile '$backupname' is missing from the target!\n";
+                warn "*** Chunk '$chunkdata{s_digest}' in meta-file '$backupname' is missing from the target!\n";
                 $errors++;
                 warn " Skipping this chunk\n";
                 next;
             }
 
             unless($size_on_target == $chunkdata{s_length}){
-                warn "*** Chunk '$chunkdata{s_digest}' in metafile '$backupname' has the wrong size on the target!\n";
-                warn "  Size in metafile: '$chunkdata{s_length}'\n  Size on target: '$size_on_target'\n";
+                warn "*** Chunk '$chunkdata{s_digest}' in meta-file '$backupname' has the wrong size on the target!\n";
+                warn "  Size in meta-file: '$chunkdata{s_length}'\n  Size on target: '$size_on_target'\n";
                 $errors++;
                 warn " Skipping this chunk\n";
                 next;
@@ -421,6 +424,12 @@ sub sync_inv {
 
             $INV{$db_key} = $db_value;
         }
+
+        # TODO enable this
+        # if($singlechunk){
+        #    die "ASSERT: Expected a one-chunk file" unless $no_filechunks != 1;
+        # }
+
     }, $opts);
 
     # Check the inventory
@@ -432,19 +441,19 @@ sub sync_inv {
                 delete $INV{$key};
             }
             else{
-                warn "Entry mismatch for '$key'\n  Currently in the inventory: '$curval'\n  Constructed from backups: '$bkpval'\n";
+                warn "Mismatch between inventory and meta-files for '$key'\n  Currently in the inventory: '$curval'\n  Constructed from meta-files: '$bkpval'\n";
                 $errors++;
                 unless($opts->{dryrun}){
-                    warn " Overwriting\n";
+                    warn " Updating inventory\n";
                     $self->inventory_db->set($key, $bkpval);
                 }
             }
         }
         else{
-            warn "Chunk in inventory missing on target '$key' => '$curval'\n";
+            warn "Chunk in inventory missing from meta-files '$key' => '$curval'\n";
             $errors++;
             unless($opts->{dryrun}){
-                warn " Deleting\n";
+                warn " Deleting from inventory\n";
                 $self->inventory_db->delete($key);
             }
         }
@@ -452,10 +461,10 @@ sub sync_inv {
 
     foreach my $key (keys %INV){
         my $bkpval = $INV{$key};
-        warn "Chunk on target '$key' missing from inventory\n  Constructed from backups: '$bkpval'\n" if $opts->{verbose};
+        warn "Chunk in meta-files '$key' missing from inventory\n  Constructed from meta-files: '$bkpval'\n" if $opts->{verbose};
         $errors++;
         unless($opts->{dryrun}){
-            warn " Adding\n" if $opts->{verbose};
+            warn " Adding to inventory\n" if $opts->{verbose};
             $self->inventory_db->set($key, $bkpval);
         }
     }
