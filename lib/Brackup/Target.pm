@@ -342,10 +342,13 @@ sub sync_inv {
     # verbose
     # dryrun
 
-    warn "Syncing the inventory starts " . ($opts->{dryrun} ? '(DRY RUN)' : '') . "\n";
+    my $label_dryrun = $opts->{dryrun} ? '(DRY RUN)' : '';
+    warn "* Syncing the inventory starts $label_dryrun\n";
 
     my $errors = 0;
     my $gpg_rec;
+
+    warn "* I. Collecting chunks in meta-files and checking if they exist on the target\n";
 
     # Get a list of chunks on the target with their size
     my $CHUNKS = $self->chunks_with_length;
@@ -379,7 +382,7 @@ sub sync_inv {
             my $i = 0;
             foreach my $d (split(/;/, $filechunk)){
                 $d =~ s/^\s+|\s+$//g;
-                die "Cannot find '$labels[$i]' in '$filechunk' in '$backupname'" unless defined $d;
+                die "Cannot find '$labels[$i]' in '$filechunk' in meta-file '$backupname'" unless defined $d;
                 $chunkdata{$labels[$i]} = $d;
                 $i++;
             }
@@ -400,17 +403,17 @@ sub sync_inv {
 
             my $size_on_target = $CHUNKS->{ $chunkdata{s_digest} };
             unless($size_on_target){
-                warn "*** Chunk '$chunkdata{s_digest}' in meta-file '$backupname' is missing from the target!\n";
+                warn "** Chunk '$chunkdata{s_digest}' referred to in meta-file '$backupname' is missing from the target!\n";
                 $errors++;
-                warn " Skipping this chunk\n";
+                warn "-- Skipping this chunk\n";
                 next;
             }
 
             unless($size_on_target == $chunkdata{s_length}){
-                warn "*** Chunk '$chunkdata{s_digest}' in meta-file '$backupname' has the wrong size on the target!\n";
-                warn "  Size in meta-file: '$chunkdata{s_length}'\n  Size on target: '$size_on_target'\n";
+                warn "** Chunk '$chunkdata{s_digest}' referred to in meta-file '$backupname' has the wrong size on the target!\n";
+                warn "-- Size in meta-file: '$chunkdata{s_length}'\n-- Size on target: '$size_on_target'\n";
                 $errors++;
-                warn " Skipping this chunk\n";
+                warn "-- Skipping this chunk\n";
                 next;
             }
 
@@ -425,14 +428,19 @@ sub sync_inv {
             $INV{$db_key} = $db_value;
         }
 
-        # TODO enable this
-        # if($singlechunk){
-        #    die "ASSERT: Expected a one-chunk file" unless $no_filechunks != 1;
-        # }
+        if($singlechunk){
+            die "ASSERT: Expected a one-chunk file" unless $no_filechunks != 1;
+        }
 
     }, $opts);
 
     # Check the inventory
+    # (At this point, all conflicts inside the target are already reported.)
+
+    warn "* II. Comparing the inventory to the data collected $label_dryrun\n";
+
+    my $label_curval = 'Description in inventory:';
+    my $label_bkpval = 'Description from target:';
 
     while (my ($key, $curval) = $self->inventory_db->each) {
         my $bkpval = $INV{$key};
@@ -441,19 +449,19 @@ sub sync_inv {
                 delete $INV{$key};
             }
             else{
-                warn "Mismatch between inventory and meta-files for '$key'\n  Currently in the inventory: '$curval'\n  Constructed from meta-files: '$bkpval'\n";
+                warn "** Mismatch between inventory and target for chunk '$key'\n-- $label_curval '$curval'\n-- $label_bkpval '$bkpval'\n";
                 $errors++;
                 unless($opts->{dryrun}){
-                    warn " Updating inventory\n";
+                    warn "-- Updating inventory\n";
                     $self->inventory_db->set($key, $bkpval);
                 }
             }
         }
         else{
-            warn "Chunk in inventory missing from meta-files '$key' => '$curval'\n";
+            warn "** Chunk '$key' in inventory is missing from target\n-- $label_curval '$curval'\n";
             $errors++;
             unless($opts->{dryrun}){
-                warn " Deleting from inventory\n";
+                warn "-- Deleting from inventory\n";
                 $self->inventory_db->delete($key);
             }
         }
@@ -461,16 +469,16 @@ sub sync_inv {
 
     foreach my $key (keys %INV){
         my $bkpval = $INV{$key};
-        warn "Chunk in meta-files '$key' missing from inventory\n  Constructed from meta-files: '$bkpval'\n" if $opts->{verbose};
+        warn "** Chunk '$key' in target meta-files is missing from inventory\n-- $label_bkpval '$bkpval'\n" if $opts->{verbose};
         $errors++;
         unless($opts->{dryrun}){
-            warn " Adding to inventory\n" if $opts->{verbose};
+            warn "-- Adding to inventory\n" if $opts->{verbose};
             $self->inventory_db->set($key, $bkpval);
         }
     }
 
-    warn "Syncing the inventory complete " . ($opts->{dryrun} ? '(DRY RUN)' : '') . "\n";
-    warn "  Encountered '$errors' errors.\n";
+    warn "* Syncing the inventory complete $label_dryrun\n";
+    warn "* Encountered '$errors' errors.\n";
 }
 
 # removes orphaned chunks in the target
