@@ -160,14 +160,17 @@ sub is_pchunk_being_stored {
     my $self = shift;
     my $pchunk = shift;
 
-    return 0 unless $self->{daemons};
+    return undef unless $self->{daemons};
+    my $schunk;
 
-    return 1 if Brackup::ProcManager->for_each_child( $self->{childgroup}, sub{
-        return 0 if $_[0]->{data}->{schunk}->has_pchunk($pchunk); # found!
+    Brackup::ProcManager->for_each_child( $self->{childgroup}, sub{
+        if($schunk = $_[0]->{data}->{schunk}->has_pchunk($pchunk)){
+            return 0;
+        }
         return 1;
     });
 
-    return 0;
+    return $schunk;
 }
 
 # return stored chunk, given positioned chunk, or undef.  no
