@@ -144,7 +144,7 @@ sub CMD_list_backups {
     printf("%-32s %-30s %10s\n",
         'Backup File',
         'Backup Date',
-        'Size (B)'); 
+        'Size (B)');
     printf("%-32s %-30s %10s\n",
         '-' x 11,
         '-' x 11,
@@ -198,7 +198,7 @@ sub CMD_gc {
     my ($removed_chunks, $total_chunks) = $target->gc(dryrun => $opt_dryrun,
                                                       verbose => $opt_verbose,
                                                       interactive => $opt_interactive);
-    debug("$removed_chunks/$total_chunks chunks " . ($opt_dryrun ? "would be " : "") . 
+    debug("$removed_chunks/$total_chunks chunks " . ($opt_dryrun ? "would be " : "") .
           "removed from target");
 }
 

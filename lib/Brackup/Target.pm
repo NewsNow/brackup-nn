@@ -210,7 +210,7 @@ sub prune {
             my ($age, $gap) = split(/:/, $t);
             $age =~ s/^\s+|\s+$//g;
             $gap =~ s/^\s+|\s+$//g;
-            die "ERROR: age missing from thinning config\n" unless $age;
+            die "ERROR: age missing from thinning config\n" unless defined $age;
             die "ERROR: gap missing from thinning config\n" unless $gap;
             $thinning_conf{$age} = $gap;
         }
@@ -221,15 +221,17 @@ sub prune {
     # select backups to delete
     my (%backups, %backup_objs, @backups_to_delete) = ();
 
+    # Separate backups by source
     foreach my $b ($self->backups) {
         my $backup_name = $b->filename;
-        if ($backup_name =~ /^(.+)-\d+$/) {
+        if ($backup_name =~ /^(.+)-\d+(\.brackup)?$/) {
             $backups{$1} ||= [];
             push @{ $backups{$1} }, $backup_name;
-            $backup_objs{$backup_name} = $b;
+            $backup_objs{$1} ||= [];
+            push @{ $backup_objs{$1} }, $b;
         }
         else {
-            warn "Unexpected backup name format: '$backup_name' does not match /-d+\$/";
+            warn "Unexpected backup name format: '$backup_name'";
         }
     }
 
@@ -238,9 +240,15 @@ sub prune {
 
         if($thinning){
             my $prevage;
-            foreach my $bn (sort @{ $backups{$source} }) { # loop through backup names related to source
+            my $debug;
+            my @backups_chron = sort { $a->time <=> $b->time } @{ $backup_objs{$source} };
+
+            # Never delete the latest backup
+            pop(@backups_chron);
+
+            foreach my $bo (@backups_chron) {
                 ## We loop through the points in forward chronological order, so age is decreasing!
-                my $bo = $backup_objs{$bn}; # the backup object
+                my $bn = $bo->filename;
                 my $ageindays = int( $bo->time / 60 / 60 / 24 + .5 );
                 my $gapindays = int( ($prevage - $bo->time) / 60 / 60 / 24 + .5 ) if defined $prevage;
                 my $desiredgap;
@@ -249,11 +257,15 @@ sub prune {
                     $desiredgap = $thinning_conf{$conf_age} if $ageindays >= $conf_age;
                 }
 
+                $debug =  "Thinning: $bn age:$ageindays gap:$gapindays des:$desiredgap" if $opt{verbose};
+
                 if( (defined $prevage) && ( $desiredgap eq 'delete' || $gapindays < $desiredgap ) ) {
                     push @backups_to_delete, $bn;
+                    warn $debug . " * DELETE\n" if $opt{verbose};
                 }
                 else {
                     $prevage = $bo->time;
+                    warn $debug . " - keep\n" if $opt{verbose};
                 }
             }
         }
