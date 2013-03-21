@@ -37,7 +37,7 @@ for more.
 
 =item --to=NAME
 
-Required.  The destination or target for your backup.  Must match a 
+Required.  The destination or target for your backup.  Must match a
 [TARGET:NAME] config section in your ~/.brackup.conf. See L<Brackup::Target>
 for more.
 
@@ -237,6 +237,7 @@ if (my ($stats, $backup_file) = eval { $backup->backup($meta_dir) }) {
 
     Brackup::ProcManager->assert_all_reaped();
     warn "Stats complete.\n" if $opt_verbose;
+    warn "Metafile written: '$backup_file'\n" if $opt_verbose;
     exit 0;
 } else {
     warn "Error running backup: $@\n";
