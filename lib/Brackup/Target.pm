@@ -388,17 +388,6 @@ sub sync_inv {
                 $i++;
             }
 
-            # An explicit p_digest is only added if encrypted AND the file contains one chunk only
-            unless($chunkdata{p_digest}){
-                if($gpg_rec){
-                    $singlechunk = 1; # used to assert later
-                    $chunkdata{p_digest} = $filedigest;
-                }
-                else{ # Without encryption, the raw digest is the stored digest
-                    $chunkdata{p_digest} = $chunkdata{s_digest};
-                }
-            }
-
             if($chunkdata{range_or_s_length} =~ /^(\d+)-(\d+)$/){
                 $chunkdata{s_range} = $chunkdata{range_or_s_length};
 
@@ -410,6 +399,18 @@ sub sync_inv {
                 $chunkdata{s_range_to} = $2;
             }else{
                 $chunkdata{s_length} = $chunkdata{range_or_s_length};
+            }
+
+            # An explicit p_digest is only added if encrypted AND the file contains one chunk only
+            # BUT! With composite chunks, the p_digest is STILL the file digest! {MISSINGPDIGEST}
+            unless($chunkdata{p_digest}){
+                if($gpg_rec || $chunkdata{s_range}){
+                    $singlechunk = 1; # used to assert later
+                    $chunkdata{p_digest} = $filedigest;
+                }
+                else{ # Without encryption, the raw digest is the stored digest
+                    $chunkdata{p_digest} = $chunkdata{s_digest};
+                }
             }
 
             # Check the chunk on the target

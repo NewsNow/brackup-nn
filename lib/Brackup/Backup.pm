@@ -275,6 +275,8 @@ sub backup {
                 # other small files we encountered earlier, into a "composite chunk",
                 # to be stored on the target in one go.
 
+                # WARNING Enabling the below would probably make it impossible to reconstruct
+                #   the inventory from the meta-files. See {MISSINGPDIGEST}
                 # Note: no technical reason for only merging small files (is_entire_file),
                 # and not the tails of larger files.  just don't like the idea of files being
                 # both split up (for big head) and also merged together (for little end).
