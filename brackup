@@ -209,7 +209,15 @@ my $backup = Brackup::Backup->new(
                                   arguments      => $arguments,
                                   );
 
-if (my ($stats, $backup_file) = eval { $backup->backup($meta_dir || $cwd) }) {
+# Fix meta_dir (cwd will change!)
+if($meta_dir){
+    $meta_dir = File::Spec->catdir($cwd, $meta_dir) unless $meta_dir =~ /^\//;
+}
+else{
+    $meta_dir = $cwd;
+}
+
+if (my ($stats, $backup_file) = eval { $backup->backup($meta_dir) }) {
     warn "Backup complete.\n" if $opt_verbose;
 
     if ($opt_dryrun || $opt_verbose) {
@@ -221,7 +229,7 @@ if (my ($stats, $backup_file) = eval { $backup->backup($meta_dir || $cwd) }) {
             ($stats_file = $backup_file) =~ s/(\.brackup)?$/.stats/;
         }
         else{
-            $stats_file = File::Spec->catfile($cwd, $stats_file) unless $stats_file =~ m!^/!;
+            $stats_file = File::Spec->catfile($cwd, $stats_file) unless $stats_file =~ /^\//;
         }
         $stats_file = noclobber_filename($stats_file);
         $stats->print($stats_file);
