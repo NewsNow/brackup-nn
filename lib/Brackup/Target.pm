@@ -394,27 +394,45 @@ sub sync_inv {
 
             if($chunkdata{range_or_s_length} =~ /^(\d+)-(\d+)$/){
                 $chunkdata{s_range} = $chunkdata{range_or_s_length};
-                $chunkdata{s_length} = $2 - $1;
+
+                # The s_length is the full length of the composite chunk, but how are we supposed to know this?
+                # We will use the length reported by the target for now.
+                # There is some sanity checking below.
+                $chunkdata{s_length} = $CHUNKS->{ $chunkdata{s_digest} };
+                $chunkdata{s_range_from} = $1;
+                $chunkdata{s_range_to} = $2;
             }else{
                 $chunkdata{s_length} = $chunkdata{range_or_s_length};
             }
 
             # Check the chunk on the target
 
-            my $size_on_target = $CHUNKS->{ $chunkdata{s_digest} };
-            unless($size_on_target){
+            unless(exists $CHUNKS->{ $chunkdata{s_digest} }){
                 warn "** Chunk '$chunkdata{s_digest}' referred to in meta-file '$backupname' is missing from the target!\n";
                 $errors++;
                 warn "-- Skipping this chunk\n";
                 next;
             }
 
-            unless($size_on_target == $chunkdata{s_length}){
-                warn "** Chunk '$chunkdata{s_digest}' referred to in meta-file '$backupname' has the wrong size on the target!\n";
-                warn "-- Size in meta-file: '$chunkdata{s_length}'\n-- Size on target: '$size_on_target'\n";
-                $errors++;
-                warn "-- Skipping this chunk\n";
-                next;
+            my $size_on_target = $CHUNKS->{ $chunkdata{s_digest} };
+            if($chunkdata{s_range}){
+                unless($size_on_target >= $chunkdata{s_range_to}){
+                    warn "** Chunk '$chunkdata{s_digest}' referred to in meta-file '$backupname' is too small on target to contain range!\n";
+                    warn "-- Line in meta-file: '$filechunk'\n";
+                    warn "-- Size in meta-file: '$chunkdata{s_length}'\n-- Size on target: '$size_on_target'\n";
+                    $errors++;
+                    warn "-- Skipping this chunk\n";
+                    next;
+                }
+            }else{
+                unless($size_on_target == $chunkdata{s_length}){
+                    warn "** Chunk '$chunkdata{s_digest}' referred to in meta-file '$backupname' has the wrong size on the target!\n";
+                    warn "-- Line in meta-file: '$filechunk'\n";
+                    warn "-- Size in meta-file: '$chunkdata{s_length}'\n-- Size on target: '$size_on_target'\n";
+                    $errors++;
+                    warn "-- Skipping this chunk\n";
+                    next;
+                }
             }
 
             # {INVSYNTAX} (search for this label to see where else this syntax is used)
@@ -429,7 +447,7 @@ sub sync_inv {
         }
 
         if($singlechunk){
-            die "ASSERT: Expected a one-chunk file" unless $no_filechunks != 1;
+            die "ASSERT: Expected a one-chunk file" unless $no_filechunks == 1;
         }
 
     }, $opts);
@@ -440,15 +458,15 @@ sub sync_inv {
     warn "* II. Comparing the inventory to the data collected $label_dryrun\n";
 
     my $label_curval = 'Description in inventory:';
-    my $label_bkpval = 'Description from target:';
+    my $label_bkpval = 'Description from target :';
 
     while (my ($key, $curval) = $self->inventory_db->each) {
         my $bkpval = $INV{$key};
         if($bkpval){
-            if($curval eq $bkpval){
-                delete $INV{$key};
-            }
-            else{
+
+            delete $INV{$key};
+
+            unless($curval eq $bkpval){
                 warn "** Mismatch between inventory and target for chunk '$key'\n-- $label_curval '$curval'\n-- $label_bkpval '$bkpval'\n";
                 $errors++;
                 unless($opts->{dryrun}){
