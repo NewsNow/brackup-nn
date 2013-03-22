@@ -370,14 +370,16 @@ sub restore_daemon_handler {
     my ($self, $flag, $data) = @_;
 
     if($flag eq 'inchild'){
-
-        $self->__restore_file( @{ $data->{data} } );
-        return 0;
-        # On an exception, the return code defaults to -1
-
+        if(eval {
+            $self->__restore_file( @{ $data->{data} } );
+            1;
+        }){
+            return 0;
+        }
+        print $@; # Sending error to parent
+        return -1;
     }
     elsif($flag eq 'childexit'){
-
         my $code = $data->{retcode};
         my $fh = $data->{fh};
         local $/;
@@ -386,8 +388,8 @@ sub restore_daemon_handler {
             die "Restore daemon returned '$r' with code '$code' PID '$data->{pid}'" unless $self->{onerror} eq 'continue';
             push @{ $self->{childerrors} }, $r if $code != 0;
         }
-
     }
+
 }
 
 sub __restore_file {
