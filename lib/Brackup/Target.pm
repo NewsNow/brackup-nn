@@ -528,7 +528,7 @@ sub gc {
 
     my $total_chunks = scalar keys %chunks;
 
-    $self->loop_items_in_backups( $opt{meta_dir}, sub{
+    $self->loop_items_in_backups(sub{
         my $it = shift;
         my $is_header = shift;
         return if $is_header;
