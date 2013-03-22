@@ -268,7 +268,7 @@ sub get_backup {
     my $val = $bucket->get_key($self->backuppath($name))
         or return 0;
 
-    $output_file ||= "$name.brackup";
+    $output_file ||= $name;
     open(my $out, ">$output_file") or die "Failed to open $output_file: $!\n";
     my $outv = syswrite($out, $val->{value});
     die "download/write error" unless $outv == do { use bytes; length $val->{value} };
