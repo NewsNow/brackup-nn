@@ -133,11 +133,13 @@ sub raw_chunkref {
 #    "<digest>;gz"   (future)
 sub inventory_key {
     my $self = shift;
+    my $separator = shift || ';';
+
     my $key = $self->raw_digest;
     if (my @rcpts = $self->root->gpg_rcpts) {
-        $key .= ";to=@rcpts";
+        $key .= $separator . "to=" . join('_', @rcpts);
     } else {
-        $key .= ";raw";
+        $key .= $separator . "raw";
     }
     return $key;
 }
