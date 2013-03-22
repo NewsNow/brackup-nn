@@ -216,9 +216,9 @@ sub chunks_with_length {
     my $prefix = $self->{chunk_path_prefix};
 
     foreach my $k (@{ $chunks->{keys} }){
-        my $name = $k->{key};
-        $name =~ s/^\Q$prefix\E//g;
-        $r{$name} = $k->{size};
+        if($k->{key} =~ /^\Q$prefix\E(.*)$/){
+            $r{$1} = $k->{size};
+        }
     }
 
     return \%r;
