@@ -86,7 +86,15 @@ sub start_child {
    # thereby corrupting the filehandles. On these systems, calling _exit() is
    # suggested instead.
 
-    my $r = $obj->$method('inchild', {'data'=>$data, 'pid'=>$$});
+    my $r;
+    unless(eval {
+        $r = $obj->$method('inchild', {'data'=>$data, 'pid'=>$$});
+        1;
+    }){
+        warn "Child in group '$group' died '$@'\n";
+        $r = -1;
+    }
+    File::Temp::cleanup(); # only removes temp resources created by the child process
     _exit($r);
 
 }
