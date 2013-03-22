@@ -160,6 +160,8 @@ my $code = __PACKAGE__->can("CMD_$cmd_name") or
 exit($code->() ? 0 : 1);
 
 sub CMD_list_backups {
+     my $sub = shift; 
+    
     printf("%-24s %9s %s\n",
         'Backup Date',
         'Size (B)',
@@ -171,11 +173,13 @@ sub CMD_list_backups {
         '-' x 11
     );
     foreach my $si (sort { $b->time <=> $a->time } $target->backups) {
-        printf("%24s %9s %s\n",
+        printf("%24s %9s %s",
             $si->localtime,
             $si->size || '?',
             $si->filename
         );
+         &$sub($si) if $sub;
+         print "\n";
     }
     return 1;
 }
@@ -188,17 +192,19 @@ sub CMD_get_backup {
 }
 
 sub CMD_get_backups {
-    foreach my $si ($target->backups) {
-        my $size = $si->size;
-        my $name = $si->filename;
-        no warnings 'uninitialized';
-        if (-s "$name.brackup" == $size || -s "$name.brackup.orig" == $size) {
-            debug("Skipping $name; already have it");
-            next;
-        }
-        debug("Fetching $name");
-        $target->get_backup($si->filename);
-    }
+    &CMD_list_backups(sub {
+                                     my $si = shift;
+                                     my $size = $si->size;
+                                     my $name = $si->filename;
+                                     no warnings 'uninitialized';
+                                     if (-s "$name.brackup" == $size || -s "$name.brackup.orig" == $size || -s "$name" == $size) {
+                                         print " ... OK";
+                                         return;
+                                     }
+                                     print " ... ";
+                                     $target->get_backup($si->filename);
+                                     print "OK";
+                                 });
 }
 
 sub CMD_delete_backup {
