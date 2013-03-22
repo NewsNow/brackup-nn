@@ -62,9 +62,14 @@ To be used in combination with the I<gc> command. Runs interactively,
 requiring an explicit confirmation before deleting chunks that have been
 garbage collected. Implies --verbose.
 
-=item --meta-dif
+=item --meta-dir=DIR
 
 If specified, allows any logic to use local metafiles, if available.
+
+=item --no-gpg
+
+Use together with --meta-dir. If specified, brackup-target will abort
+instead of attempting to decrypt a metafile loaded from the target.
 
 =back
 
@@ -107,6 +112,7 @@ my $opt_keep_backups;
 my $opt_dryrun;
 my $opt_interactive;
 my $opt_source;
+my $opt_nogpg;
 usage() unless
     GetOptions(
                'verbose+'       => \$opt_verbose,
@@ -117,7 +123,8 @@ usage() unless
                'interactive'    => \$opt_interactive,
                'source=s'       => \$opt_source,
                'help'           => \$opt_help,
-               'meta-dir=s'     => \$meta_dir
+               'meta-dir=s'     => \$meta_dir,
+               'no-gpg'         => \$opt_nogpg
                );
 
 if ($destdir) {
@@ -171,7 +178,7 @@ sub CMD_get_backup {
     my $name = shift @ARGV or
         die "get_backup requires a filename to download";
     $target->get_backup($name)
-		or die "Failed to retrieve backup $name\n";
+        or die "Failed to retrieve backup $name\n";
 }
 
 sub CMD_get_backups {
@@ -192,7 +199,7 @@ sub CMD_delete_backup {
     my $name = shift @ARGV or
         die "delete_backup requires a filename to download";
     $target->delete_backup($name)
-		or die "Failed to delete backup $name\n";
+        or die "Failed to delete backup $name\n";
 }
 
 sub CMD_prune {
@@ -207,7 +214,8 @@ sub CMD_gc {
     my ($removed_chunks, $total_chunks) = $target->gc(dryrun => $opt_dryrun,
                                                       verbose => $opt_verbose,
                                                       interactive => $opt_interactive,
-                                                      meta_dir => $meta_dir);
+                                                      meta_dir => $meta_dir,
+                                                      no_gpg => $opt_nogpg);
     debug("$removed_chunks/$total_chunks chunks " . ($opt_dryrun ? "would be " : "") .
           "removed from target");
 }
@@ -216,6 +224,7 @@ sub CMD_sync_inv {
     warn "Syncing metafiles and chunks on the target with the inventory\n";
     $target->sync_inv({
         meta_dir => $meta_dir,
+        no_gpg => $opt_nogpg,
         verbose => $opt_verbose,
         dryrun => $opt_dryrun
     });

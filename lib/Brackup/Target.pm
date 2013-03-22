@@ -304,6 +304,7 @@ sub loop_items_in_backups {
     ##
     # meta_dir -- if specified, attempt to read local metafiles
     # verbose
+    # no_gpg
 
     my $tempfile = +(tempfile())[1];
     my @backups = $self->backups;
@@ -322,7 +323,7 @@ sub loop_items_in_backups {
             # TODO Optionally die here instead of waiting for a passphrase
             warn "Could not find local metafile; falling back to loading it from the target.\n" if $opt->{meta_dir};
             $self->get_backup($backup->filename, $tempfile) || die "Couldn't load backup from target " . $backup->filename;
-            my $decrypted_backup = new Brackup::DecryptedFile(filename => $tempfile);
+            my $decrypted_backup = new Brackup::DecryptedFile(filename => $tempfile, no_gpg => $opt->{no_gpg});
             $parser = Brackup::Metafile->open($decrypted_backup->name);
 
         }
