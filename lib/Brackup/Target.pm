@@ -199,6 +199,17 @@ sub get_backup {
     die "ERROR: get_backup method not implemented in sub-class $self";
 }
 
+sub delete_backup_and_local_metafile {
+    my ($self, $name, $meta_dir) = @_;
+
+    if($meta_dir){
+        my $f = File::Spec->catfile($meta_dir, $name);
+        unlink $f || warn "Could not delete local metafile '$f'\n";
+    }
+
+    return $self->delete_backup($name);
+}
+
 # deletes the given backup from this target
 sub delete_backup {
     my ($self, $name) = @_;
@@ -290,7 +301,7 @@ sub prune {
     warn ($opt{dryrun} ? "Pruning:\n" : "Pruned:\n") if $opt{verbose};
     foreach my $backup_name (@backups_to_delete) {
         warn "  $backup_name\n" if $opt{verbose};
-        $self->delete_backup($backup_name) unless $opt{dryrun};
+        $self->delete_backup_and_local_metafile($backup_name, $opt{meta_dir}) unless $opt{dryrun};
     }
     return scalar @backups_to_delete;
 }

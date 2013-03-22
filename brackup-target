@@ -64,7 +64,13 @@ garbage collected. Implies --verbose.
 
 =item --meta-dir=DIR
 
-If specified, allows any logic to use local metafiles, if available.
+If specified, allows I<gc> and I<sync_inv> to use local metafiles, if available.
+The list of metafiles is still loaded from the target.
+Useful if the metafiles on the target are encrypted, as if all metafiles
+are available locally, then these tasks can run without having to enter
+a passphrase for GPG for decryption.
+
+If specified, I<prune> and I<delete_backup> deletes the local metafile as well.
 
 =item --no-gpg
 
@@ -198,12 +204,13 @@ sub CMD_get_backups {
 sub CMD_delete_backup {
     my $name = shift @ARGV or
         die "delete_backup requires a filename to download";
-    $target->delete_backup($name)
+    $target->delete_backup_and_local_metafile($name, $meta_dir)
         or die "Failed to delete backup $name\n";
 }
 
 sub CMD_prune {
     my $removed_count = $target->prune( keep_backups => $opt_keep_backups,
+                                        meta_dir => $meta_dir,
                                         dryrun => $opt_dryrun,
                                         source => $opt_source,
                                         verbose => $opt_verbose);
