@@ -116,7 +116,7 @@ sub enc_chunkref_of {
 sub start_some_processes {
     my $self = shift;
 
-    Brackup::ProcManager->wait_for_extra_children('gpg');
+    Brackup::ProcManager->collect_zombies();
 
     my $pchunk;
     while ($self->num_running_procs < $self->{target}->{gpg_daemons} &&

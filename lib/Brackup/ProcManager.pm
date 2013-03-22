@@ -91,9 +91,11 @@ sub start_child {
 
 }
 
-# Returns what the handler method returns
+# Returns what the handler method returns unless $ret_bool is true,
+# in which case always returns true if a child was found.
+# Returns undef if no child was found.
 sub wait_for_child {
-    my ($class, $blocking) = @_;
+    my ($class, $blocking, $ret_bool) = @_;
     my $flags = $blocking ? 0 : WNOHANG;
     my $pid = waitpid(-1, $flags);
 
@@ -110,6 +112,7 @@ sub wait_for_child {
     my $r = $CHILDREN{$pid}->{obj}->$method('childexit', $CHILDREN{$pid});
     close $CHILDREN{$pid}->{fh};
     delete $CHILDREN{$pid};
+    return 1 if $ret_bool;
     return $r;
 }
 
@@ -133,6 +136,12 @@ sub wait_for_all_children {
     while(($CHILD_GROUP_COUNT{$group} || 0) > 0){
         $class->wait_for_child(1);
     }
+}
+
+sub collect_zombies {
+    my $class = shift;
+
+    while( $class->wait_for_child(0, 1) ){ 1; }
 }
 
 sub assert_all_reaped {
