@@ -276,7 +276,7 @@ sub has_pchunk {
     my $self = shift;
     my $pchunk = shift;
 
-    return $self if $pchunk->inventory_key eq $self->{pchunk}->inventory_key;
+    return $self->clone_but_for_pchunk($pchunk) if $pchunk->inventory_key eq $self->{pchunk}->inventory_key;
     return undef;
 }
 
