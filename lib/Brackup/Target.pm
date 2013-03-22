@@ -489,8 +489,8 @@ sub sync_inv {
                 warn "** Mismatch between inventory and target for chunk '$key'\n-- $label_curval '$curval'\n-- $label_bkpval '$bkpval'\n";
                 $errors++;
                 unless($opts->{dryrun}){
-                    warn "-- Updating inventory\n";
-                    $self->inventory_db->set($key, $bkpval);
+                    warn "-- Deleting from inventory to force re-upload\n";
+                    $self->inventory_db->delete($key);
                 }
             }
         }
