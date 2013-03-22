@@ -331,7 +331,6 @@ sub loop_items_in_backups {
         }
         # If failed or not available:
         unless($parser){
-            # TODO Optionally die here instead of waiting for a passphrase
             warn "Could not find local metafile; falling back to loading it from the target.\n" if $opt->{meta_dir};
             $self->get_backup($backup->filename, $tempfile) || die "Couldn't load backup from target " . $backup->filename;
             my $decrypted_backup = new Brackup::DecryptedFile(filename => $tempfile, no_gpg => $opt->{no_gpg});
