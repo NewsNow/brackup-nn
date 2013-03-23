@@ -218,10 +218,13 @@ sub CMD_get_backups {
 sub CMD_delete_backup {
     my $name = shift @ARGV or
         die "delete_backup requires a filename to download";
+
+    die "NOT deleting '$name' in dry-run mode. Use -x to delete.\n" if $opt_dryrun;
+
     $target->delete_backup_and_local_metafile($name, $meta_dir)
         or die "Failed to delete backup $name\n";
 
-	 warn "Deleted backup metafile $name successfully\n";
+    warn "Deleted backup metafile $name successfully\n";
 }
 
 sub CMD_prune {
