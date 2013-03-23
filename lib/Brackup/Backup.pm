@@ -189,8 +189,10 @@ sub backup {
         $self->report_progress($percdone);
     };
 
+    # Returns if we should continue
     my $start_file = sub {
         $end_file->();
+        return 0 if $Brackup::Util::SHUTDOWN_REQUESTED;
         $cur_file = shift;
         $cur_file_not_available = undef;
         @stored_chunks = ();
@@ -201,13 +203,17 @@ sub backup {
             $gpg_iter->next while $gpg_iter->behind_by > 1;
         }
         $file_has_shown_status = 0;
+        return 1;
     };
 
     # records are either Brackup::File (for symlinks, directories, etc), or
     # PositionedChunks, in which case the file can asked of the chunk
     while (my $rec = $chunk_iterator->next) {
         my $eval_r = eval {
-            # Returning with '2' means 'next' should be called
+            # Return values:
+            # 1 - OK
+            # 2 - call next (same behaviour)
+            # 3 - call last
 
             if ($rec->isa("Brackup::File")) {
                 $start_file->($rec);
@@ -215,7 +221,10 @@ sub backup {
             }
             my $pchunk = $rec;
             if ($pchunk->file != $cur_file) {
-                $start_file->($pchunk->file);
+                unless( $start_file->($pchunk->file) ){
+                    warn "Signal received previously. Aborting now...\n";
+                    return 3;
+                }
             }
 
             # WARNING The checks here are coupled to the ones in GPGProcManager::next_chunk_to_encrypt
@@ -333,6 +342,7 @@ sub backup {
 
         if($eval_r){
             next if $eval_r == 2;
+            last if $eval_r == 3;
         }
         else{ # Error occurred
             my $err = $@;

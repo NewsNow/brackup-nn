@@ -28,7 +28,8 @@ use Carp;
 use Fcntl qw(O_RDONLY);
 use Digest::SHA1;
 
-my $mainpid = $$;
+our $mainpid = $$;
+our $SHUTDOWN_REQUESTED = 0;
 my $_temp_directory;
 
 END {
@@ -38,6 +39,18 @@ END {
     }
 }
 use File::Temp ();
+
+sub setup_sig_handlers {
+    $SIG{'TERM'} = \&brackup_destruct;
+    $SIG{'INT'}  = \&brackup_destruct;
+}
+
+sub brackup_destruct {
+    if($mainpid == $$){
+        warn "Shutdown requested...";
+    }
+    $SHUTDOWN_REQUESTED = 1;
+}
 
 sub _get_temp_directory {
     # Create temporary directory if we need one. By default, all temporary

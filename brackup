@@ -151,6 +151,8 @@ usage() unless
                );
 usage() if @ARGV;
 
+Brackup::Util::setup_sig_handlers();
+
 if ($opt_help) {
     eval "use Pod::Usage;";
     Pod::Usage::pod2usage( -verbose => 1, -exitval => 0 );
