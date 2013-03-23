@@ -13,7 +13,11 @@
 # and such changes are copyright (c) 2013 NewsNow Publishing Limited.  You may
 # use, modify, and/or redistribute brackup-nn under the same terms as Perl itself.
 #
-# This file is a new addition to brackup-nn.
+# This file is a new addition to brackup-nn, based on code in Net::Amazon::S3
+# authored by Pedro Figueiredo <me@pedrofigueiredo.org>, copyright (c) 2013
+# Amazon Digital Services, Leon Brocard, Brad Fitzpatrick, Pedro Figueiredo and
+# licensed for use, modification and/or distribution under the same terms as the
+# Perl 5 programming language system itself.
 #
 
 package Brackup::Target::Amazon::S3;
