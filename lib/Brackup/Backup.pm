@@ -215,7 +215,7 @@ sub backup {
             # 2 - call next (same behaviour)
             # 3 - call last
 
-            if ($rec->isa("Brackup::File")) {
+            if ($rec->isa("Brackup::File")) { # symlinks, directories, etc.
                 $start_file->($rec);
                 return 2;
             }
