@@ -30,9 +30,16 @@ brackup-target - Manage your backup targets
  $ brackup-target [opts] <target_name> gc      # run garbage collector
  $ brackup-target [opts] <target_name> sync_inv # sync the inventory database with items on the target
 
+By default, I<brackup-target> does not execute write operations.
+Use the --execute|-x option to perform all operations and not to do a dry-run.
+
 =head2 OPTIONS
 
 =over 4
+
+=item --execute|-x
+
+Do execute write operations.
 
 =item --dest=DIR
 
@@ -41,10 +48,6 @@ Destination to write files to.  Defaults to current working directory.
 =item --verbose|-v
 
 Be verbose with status.
-
-=item --dry-run|-n
-
-Do not actually execute write operations.
 
 =item --keep-backups
 
@@ -115,6 +118,7 @@ my $meta_dir;
 my $opt_help;
 my $opt_verbose;
 my $opt_keep_backups;
+my $opt_execute;
 my $opt_dryrun;
 my $opt_interactive;
 my $opt_source;
@@ -125,13 +129,15 @@ usage() unless
                'dest=s'         => \$destdir,
                'config=s'       => \$config_file,
                'keep-backups=i' => \$opt_keep_backups,
-               'dry-run|n'      => \$opt_dryrun,
+               'execute|x'      => \$opt_execute,
                'interactive'    => \$opt_interactive,
                'source=s'       => \$opt_source,
                'help'           => \$opt_help,
                'meta-dir=s'     => \$meta_dir,
                'no-gpg'         => \$opt_nogpg
                );
+
+$opt_dryrun = $opt_execute ? 0 : 1;
 
 if ($destdir) {
     chdir $destdir or die "Failed to chdir to $destdir: $!\n";
@@ -160,8 +166,8 @@ my $code = __PACKAGE__->can("CMD_$cmd_name") or
 exit($code->() ? 0 : 1);
 
 sub CMD_list_backups {
-     my $sub = shift; 
-    
+     my $sub = shift;
+
     printf("%-24s %9s %s\n",
         'Backup Date',
         'Size (B)',
@@ -189,7 +195,7 @@ sub CMD_get_backup {
         die "get_backup requires a filename to download";
     $target->get_backup($name)
         or die "Failed to retrieve backup $name\n";
-	
+
     warn "Retrieved metafile '$name' successfully.\n";
 }
 
@@ -214,7 +220,7 @@ sub CMD_delete_backup {
         die "delete_backup requires a filename to download";
     $target->delete_backup_and_local_metafile($name, $meta_dir)
         or die "Failed to delete backup $name\n";
-	
+
 	 warn "Deleted backup metafile $name successfully\n";
 }
 
