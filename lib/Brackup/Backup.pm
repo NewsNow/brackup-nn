@@ -234,7 +234,7 @@ sub backup {
             if ($schunk = $target->stored_chunk_from_inventory($pchunk)) {
                 $pchunk->forget_chunkref;
                 push @stored_chunks, $schunk;
-                $self->debug_more('Chunk already stored');
+                $self->debug_more('  * chunk already stored: ', $pchunk->as_string, "\n");
                 return 2;
             }
 
@@ -248,7 +248,7 @@ sub backup {
                 $pchunk->forget_chunkref;
                 ## ! $schunk in a composite chunk returns the digest of the composite chunk
                 push @stored_chunks, $schunk;
-                $self->debug_more('Component chunk already stored');
+                $self->debug_more('  * component chunk already stored: ', $pchunk->as_string, "\n");
                 return 2;
             }
 
@@ -257,7 +257,7 @@ sub backup {
                 $pchunk->forget_chunkref;
                 ## ! $schunk in a composite chunk returns the digest of the composite chunk
                 push @stored_chunks, $schunk;
-                $self->debug_more('Chunk is already being stored by another daemon');
+                $self->debug_more('  * chunk is already being stored by another daemon', $pchunk->as_string, "\n");
                 return 2;
             }
 
