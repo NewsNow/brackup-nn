@@ -151,8 +151,6 @@ if($opt_execute){
     $opt_dryrun = 1;
 }
 
-$opt_dryrun = $opt_execute ? 0 : 1;
-
 if ($destdir) {
     chdir $destdir or die "Failed to chdir to $destdir: $!\n";
 }
