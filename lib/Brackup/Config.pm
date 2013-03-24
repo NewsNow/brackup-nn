@@ -170,6 +170,11 @@ sub load_root {
         $root->ignore($pat);
     }
 
+    # iterate over config's accept, and add those
+    foreach my $pat ($conf->values("accept")) {
+        $root->accept($pat);
+    }
+
     # abort if the user had any configuration we didn't understand
     if (my @keys = $conf->unused_config) {
         die "Aborting, unknown configuration keys in SOURCE:$name: @keys\n";
