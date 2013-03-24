@@ -26,7 +26,7 @@ use Brackup::ProcManager;
 use Carp qw(croak);
 
 sub new {
-    my ($class, $confsec) = @_;
+    my ($class, $confsec, %opts) = @_;
     my $self = bless {}, $class;
     $self->{name} = $confsec->name;
     $self->{name} =~ s/^TARGET://
@@ -42,6 +42,7 @@ sub new {
                                         "$ENV{HOME}/.brackup-target-$self->{name}.invdb",
                                         $confsec);
 
+    $self->{verbose} = $opts{verbose};
     $self->{daemons} = $confsec->value("daemons") || '0';
     $self->{gpg_daemons} = $confsec->value("gpg_daemons") || '0';
     $self->{childgroup} = ref($class) ? ref($class) : $class;
