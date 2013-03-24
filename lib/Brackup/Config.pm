@@ -191,6 +191,7 @@ sub list_targets {
 sub load_target {
     my ($self, $name, %opts) = @_;
     my $testmode = delete $opts{testmode};
+    my $verbose = delete $opts{verbose};
     croak("Unknown options: " . join(', ', keys %opts)) if %opts;
 
     my $confsec = $self->{"TARGET:$name"} or
@@ -204,7 +205,7 @@ sub load_target {
     my $class = "Brackup::Target::$type";
     eval "use $class; 1;" or die
         "Failed to load ${name}'s driver: $@\n";
-    my $target = $class->new($confsec);
+    my $target = $class->new($confsec, 'verbose' => $verbose);
 
     if (my @unk_config = $confsec->unused_config) {
         die "Unknown config params in TARGET:$name: @unk_config\n"
