@@ -31,6 +31,10 @@ sub new {
     my $class = shift;
     my %args = ref($_[0]) ? %{$_[0]} : @_;
     my $self = bless { %args }, $class;
+    
+     # Ensure sensible defaults
+     $self->{multipart_threshold} ||= 10*1024*1024;
+     $self->{multipart_part_size} ||= 10*1024*1024;
     return $self;
 }
 
@@ -66,9 +70,10 @@ sub _set_headers {
 
 sub put {
     my $self = shift;
+    my %args = ref($_[0]) ? %{$_[0]} : @_;
     
-    # return $self->put_singlepart(@_);
-    return $self->put_multipart(1048576*5, @_);
+    return $self->put_singlepart(%args) if length($args{value}) <= $self->{multipart_threshold};
+    return $self->put_multipart($self->{multipart_part_size}, %args);
 }
 
 sub put_singlepart {
@@ -107,7 +112,7 @@ sub put_multipart {
     
         my $value = substr $data, 0, $chunksize, '';
         
-        print STDERR "Putting part $part ... \n";
+        print "      * putting part $part ...\n" if $self->{verbose};
         my $put_part_response = $self->put_part(
             bucket => $args{bucket},
             key => $args{key},
