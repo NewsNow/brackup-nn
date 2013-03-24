@@ -37,6 +37,7 @@ sub new {
     $self->{gpg_rcpt}   = [ $conf->values('gpg_recipient') ];
     $self->{chunk_size} = $conf->byte_value('chunk_size');
     $self->{ignore}     = [];
+    $self->{accept}     = [];
 
     $self->{smart_mp3_chunking} = $conf->bool_value('smart_mp3_chunking');
 
@@ -104,6 +105,27 @@ sub ignore {
     push @{ $self->{ignore} }, qr/$pattern/;
 }
 
+sub accept {
+    my ($self, $pattern) = @_;
+
+     if($pattern =~ s/^([!=])(?:=?)\s*//) {
+         my $cond = $1;
+         $pattern =~ s{^/}{}s;
+         my $pattern_re = quotemeta($pattern);
+         
+         # 1. ^\*     => [^/]+
+         # 2. /\*     => /[^/]+
+         # 3. /\w+\*  => /\w+[^/]*
+         
+         $pattern_re =~ s!(^|/)\\\*!$1\[^/\]+!sg;
+         $pattern_re =~ s!(/?[^/\*]+)\\\*!$1\[^/\]*!sg;
+         
+         $pattern_re = '^' . $pattern_re;
+         
+         push @{ $self->{accept} }, [ $cond eq '=' ? 1 : 0, $pattern_re, $pattern ];
+     }
+}
+
 sub path {
     return $_[0]{dir};
 }
@@ -148,11 +170,43 @@ sub foreach_file {
 
                 my $statobj = File::stat::lstat($path);
                 my $is_dir = -d _;
-
+                
                 foreach my $pattern (@{ $self->{ignore} }) {
                     next DENTRY if $path =~ /$pattern/;
                     next DENTRY if $is_dir && "$path/" =~ /$pattern/;
                 }
+                    
+                if(@{ $self->{accept} }) {
+                         my $npath = $path;
+                         $npath .= '/' if $is_dir;
+                         
+                         my $dbg = "$npath:\n";
+                         
+                         my $rule_outcome = 0;
+                         foreach my $rule (@{ $self->{accept} }) {
+                             my $cond = $rule->[0];
+                             my $pattern_re = $rule->[1];
+                             my $pattern = $rule->[2];
+                             $dbg .= "   " . ($cond ? '=~' : '!~') . " $pattern_re => ";
+                             if($npath =~ /$pattern_re/) {
+                                 $dbg .= "(MATCH_RE) ";
+                                 $rule_outcome = $cond;
+                             }
+                             elsif(defined($pattern) && $is_dir && $pattern =~ /^\Q$npath\E/) {
+                                 $dbg .= "(MATCH) ";
+                                 $rule_outcome = $cond;
+                             }
+                             else {
+                                 $dbg .= "(no match) ";
+                                 ;
+                             }
+                             $dbg .= "=> outcome:" . ($rule_outcome ? 'accept' : 'ignore') . "\n";
+                             
+                             # print $dbg;
+                         }
+                         
+                         next DENTRY unless $rule_outcome;
+                     }
 
                 $statcache{$path} = $statobj;
                 push @good_dentries, $dentry;
