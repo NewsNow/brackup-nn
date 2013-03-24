@@ -31,7 +31,7 @@ brackup-target - Manage your backup targets
  $ brackup-target [opts] <target_name> sync_inv # sync the inventory database with items on the target
 
 By default, I<brackup-target> does not execute write operations.
-Use the --execute|-x option to perform all operations and not to do a dry-run.
+Use the --execute|-x option to perform all operations instead of doing a dry-run.
 
 =head2 OPTIONS
 
@@ -40,6 +40,11 @@ Use the --execute|-x option to perform all operations and not to do a dry-run.
 =item --execute|-x
 
 Do execute write operations.
+
+=item --dry-run|-n
+
+For backwards compatibility, this option is retained.
+This is now the default behaviour, which can be overridden by --execute.
 
 =item --dest=DIR
 
@@ -129,6 +134,7 @@ usage() unless
                'dest=s'         => \$destdir,
                'config=s'       => \$config_file,
                'keep-backups=i' => \$opt_keep_backups,
+               'dry-run|n'      => \$opt_dryrun,
                'execute|x'      => \$opt_execute,
                'interactive'    => \$opt_interactive,
                'source=s'       => \$opt_source,
@@ -136,6 +142,14 @@ usage() unless
                'meta-dir=s'     => \$meta_dir,
                'no-gpg'         => \$opt_nogpg
                );
+
+if($opt_execute){
+    if($opt_dryrun){
+        die "--dry-run and --execute cannot be specified at the same time!";
+    }
+}else{
+    $opt_dryrun = 1;
+}
 
 $opt_dryrun = $opt_execute ? 0 : 1;
 
