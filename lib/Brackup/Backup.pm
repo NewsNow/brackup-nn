@@ -411,6 +411,8 @@ sub backup {
             close $store_fh or die "Close on encrypted metafile failed: $!";
             unlink $store_filename;
         }
+         
+        $target->cleanup();
     }
     $self->report_progress(100, "Backup complete.");
 

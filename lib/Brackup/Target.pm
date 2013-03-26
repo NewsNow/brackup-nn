@@ -217,6 +217,10 @@ sub delete_backup {
     die "ERROR: delete_backup method not implemented in sub-class $self";
 }
 
+# cleanup the given backup from this target
+sub cleanup {
+}
+
 # removes old metafiles from this target
 sub prune {
     my ($self, %opt) = @_;
