@@ -82,6 +82,13 @@ List the names of the sources defined in your configuration file.
 
 List the names of the targets defined in your configuration file.
 
+=item --create-new-inv
+
+By default, brackup aborts if it cannot find the inventory database
+instead of re-uploading all the files.
+When running brackup for the first time, use --create-new-inv
+to create a new inventory.
+
 =back
 
 =head1 WARRANTY
@@ -129,7 +136,7 @@ my $opt_dryrun;
 my $opt_verbose;
 my $opt_du_stats;
 my $opt_zenityprogress;
-my ($opt_list_sources, $opt_list_targets);
+my ($opt_list_sources, $opt_list_targets, $opt_create_new_inv);
 
 my $config_file = Brackup::Config->default_config_file_name;
 my $arguments = join(' ', @ARGV);
@@ -148,6 +155,7 @@ usage() unless
                'config=s'  => \$config_file,
                'list-sources'   => \$opt_list_sources,
                'list-targets'   => \$opt_list_targets,
+               'create-new-inv' => \$opt_create_new_inv
                );
 usage() if @ARGV;
 
@@ -198,7 +206,7 @@ sub usage {
 my $root = eval { $config->load_root($src_name); } or
     usage($@);
 
-my $target = eval { $config->load_target($target_name); } or
+my $target = eval { $config->load_target($target_name, create_new_inv => $opt_create_new_inv); } or
     usage($@);
 
 

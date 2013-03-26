@@ -28,6 +28,10 @@ sub new {
         data  => {},
     }, $class;
 
+    unless( $opts{create_new} || -e $opts{file} ){
+        die "[NO_DB] DB file not found - need to create new one?";
+    }
+
     my $dbh = $self->{dbh} = DBI->connect("dbi:SQLite:dbname=$opts{file}","","", { RaiseError => 1, PrintError => 0 }) or
         die "Failed to connect to SQLite filesystem digest cache database at $opts{file}: " . DBI->errstr;
 
@@ -38,7 +42,7 @@ sub new {
 
     $dbh->do("PRAGMA synchronous = OFF");
     # $dbh->do("BEGIN TRANSACTION");
-    
+
     return $self;
 }
 
@@ -122,16 +126,16 @@ __END__
 
 =head1 NAME
 
-Brackup::Dict::SQLite - key-value dictionary implementation, using a 
+Brackup::Dict::SQLite - key-value dictionary implementation, using a
 SQLite database for storage
 
 =head1 DESCRIPTION
 
 Brackup::Dict::SQLite implements a simple key-value dictionary using
-a SQLite database (in a single file) for storage. It provides the 
-default storage backend for both the L<Brackup::DigestCache> digest 
-cache and the L<Brackup::InventoryDatabase> inventory database (as 
-separate databases). The database schema is created automatically as 
+a SQLite database (in a single file) for storage. It provides the
+default storage backend for both the L<Brackup::DigestCache> digest
+cache and the L<Brackup::InventoryDatabase> inventory database (as
+separate databases). The database schema is created automatically as
 needed - no database maintenance is required.
 
 Brackup::Dict::SQLite is optimised for speed and loads the entire
@@ -152,7 +156,7 @@ their respective database locations.
 
 =head2 SQLite Schema
 
-This is defined automatically, but if you want to look around in it, 
+This is defined automatically, but if you want to look around in it,
 the schema is:
 
   CREATE TABLE <TABLE> (

@@ -31,6 +31,7 @@ sub new {
     $self->{dict} = $dict_class->new(
         table => "digest_cache",
         file => $file,
+        create_new => 1
     );
 
     return $self;

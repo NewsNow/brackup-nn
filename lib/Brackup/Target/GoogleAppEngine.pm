@@ -31,9 +31,9 @@ use HTTP::Request::Common;
 #   url
 
 sub new {
-    my ($class, $confsec) = @_;
-    my $self = $class->SUPER::new($confsec);
-    
+    my ($class, $confsec, $opts) = @_;
+    my $self = $class->SUPER::new($confsec, $opts);
+
     $self->{user_email} = $confsec->value("user_email")
         or die "No 'user_email'";
     $self->{password} = $confsec->value("password")

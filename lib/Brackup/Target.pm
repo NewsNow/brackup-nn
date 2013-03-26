@@ -26,7 +26,7 @@ use Brackup::ProcManager;
 use Carp qw(croak);
 
 sub new {
-    my ($class, $confsec) = @_;
+    my ($class, $confsec, $opts) = @_;
     my $self = bless {}, $class;
     $self->{name} = $confsec->name;
     $self->{name} =~ s/^TARGET://
@@ -40,7 +40,8 @@ sub new {
         Brackup::InventoryDatabase->new($confsec->value("inventorydb_file") ||
                                         $confsec->value("inventory_db") ||
                                         "$ENV{HOME}/.brackup-target-$self->{name}.invdb",
-                                        $confsec);
+                                        $confsec,
+                                        $opts->{create_new_inv});
 
     $self->{daemons} = $confsec->value("daemons") || '0';
     $self->{gpg_daemons} = $confsec->value("gpg_daemons") || '0';

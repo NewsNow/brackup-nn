@@ -22,8 +22,8 @@ use File::Basename;
 use Net::FTP;
 
 sub new {
-    my ($class, $confsec) = @_;
-    my $self = $class->SUPER::new($confsec);
+    my ($class, $confsec, $opts) = @_;
+    my $self = $class->SUPER::new($confsec, $opts);
 
     $self->{ftp_host} = $confsec->value("ftp_host") or die 'No "ftp_host"';
     $self->{ftp_user} = $confsec->value("ftp_user") or die 'No "ftp_user"';
@@ -43,7 +43,7 @@ sub new_from_backup_header {
 
     $self->{ftp_host} = $ENV{FTP_HOST} || $header->{'FtpHost'};
     $self->{ftp_user} = $ENV{FTP_USER} || $header->{'FtpUser'};
-    $self->{ftp_password} = $ENV{FTP_PASSWORD} || 
+    $self->{ftp_password} = $ENV{FTP_PASSWORD} ||
                             $confsec->value('ftp_password') or
         die "FTP_PASSWORD missing in environment";
     $self->{path} = $header->{'BackupPath'} or

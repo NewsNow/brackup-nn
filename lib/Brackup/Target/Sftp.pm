@@ -23,8 +23,8 @@ use Net::SFTP::Foreign 1.57;                    # versions <= 1.56 emit warnings
 use Net::SFTP::Foreign::Constants qw(:flags);
 
 sub new {
-    my ($class, $confsec) = @_;
-    my $self = $class->SUPER::new($confsec);
+    my ($class, $confsec, $opts) = @_;
+    my $self = $class->SUPER::new($confsec, $opts);
 
     $self->{path} = $confsec->value("path") or die 'No path specified';
     $self->{nocolons} = $confsec->value("no_filename_colons");
@@ -32,7 +32,7 @@ sub new {
 
     $self->{sftp_host} = $confsec->value("sftp_host") or die 'No "sftp_host"';
     $self->{sftp_port} = $confsec->value("sftp_port");
-    $self->{sftp_user} = $confsec->value("sftp_user") || (getpwuid($<))[0] 
+    $self->{sftp_user} = $confsec->value("sftp_user") || (getpwuid($<))[0]
         or die "No sftp_user specified";
 
     $self->_common_new;
@@ -74,7 +74,7 @@ sub backup_header {
     };
 }
 
-sub _default_nocolons { 
+sub _default_nocolons {
     return 1;        # Can't assume remote OS allows colons
 }
 
@@ -87,7 +87,7 @@ sub _connect {
     my ($self) = @_;
 
     $self->{sftp} = Net::SFTP::Foreign->new(
-        $self->{sftp_host}, 
+        $self->{sftp_host},
         user => $self->{sftp_user},
         $self->{sftp_port} ? (port => $self->{sftp_port}) : (),
     );
@@ -112,7 +112,7 @@ sub _autoretry {
 sub _ls {
     my ($self, $path) = @_;
     my $result = $self->_autoretry(sub {
-        if (my $ls = $self->{sftp}->ls($path, 
+        if (my $ls = $self->{sftp}->ls($path,
                 names_only => 1, no_wanted => qr/^\.\.?$/ )) {
             die "Bad ls results $ls" unless ref $ls && ref $ls eq 'ARRAY';
             return [ map { $path . '/' . $_ } @$ls ];
@@ -167,7 +167,7 @@ sub _put_chunk {
     $self->_mkdir(dirname($path));
 
     $self->_autoretry(sub {
-        my $fh = $self->{sftp}->open($path, SSH2_FXF_WRITE|SSH2_FXF_CREAT) 
+        my $fh = $self->{sftp}->open($path, SSH2_FXF_WRITE|SSH2_FXF_CREAT)
             or die "Failed to open";
         my $result = $self->{sftp}->write($fh, $content);
         $self->{sftp}->close($fh) or die "Failed to close";
@@ -222,7 +222,7 @@ sub store_chunk {
     my $dig = $chunk->backup_digest;
     my $path = $self->chunkpath($dig);
 
-    $self->_put_fh($path, $chunk->chunkref); 
+    $self->_put_fh($path, $chunk->chunkref);
 
     my $actual_size = $self->size($path);
     my $expected_size = $chunk->backup_length;
@@ -244,7 +244,7 @@ sub chunks {
     my $self = shift;
 
     my @chunks = ();
-    for ($self->{sftp}->find( $self->{path}, 
+    for ($self->{sftp}->find( $self->{path},
             wanted => qr/\.chunk$/, no_descend => qr/^backups$/ )) {
         my $chunk_name = basename($_->{filename});
         $chunk_name =~ s/\.chunk$//;
@@ -309,7 +309,7 @@ sub delete_backup {
 
 =head1 NAME
 
-Brackup::Target::Sftp - backup to an SSH/SFTP server 
+Brackup::Target::Sftp - backup to an SSH/SFTP server
 
 =head1 DESCRIPTION
 
@@ -325,7 +325,7 @@ In your ~/.brackup.conf file:
   sftp_host = server.example.com
   sftp_user = user
 
-At this time there is no 'sftp_password' setting - you are encouraged 
+At this time there is no 'sftp_password' setting - you are encouraged
 to use ssh keys for authentication instead of passwords. Alternatively,
 you can enter your password interactively when prompted.
 
@@ -374,7 +374,7 @@ Gavin Carr E<lt>gavin@openfusion.com.auE<gt>.
 
 Copyright (c) 2008 Gavin Carr.
 
-This module is free software. You may use, modify, and/or redistribute 
+This module is free software. You may use, modify, and/or redistribute
 this software under the same terms as perl itself.
 
 =cut

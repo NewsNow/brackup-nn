@@ -32,8 +32,8 @@ use Net::Riak 0.10;
 #
 
 sub new {
-    my ($class, $confsec) = @_;
-    my $self = $class->SUPER::new($confsec);
+    my ($class, $confsec, $opts) = @_;
+    my $self = $class->SUPER::new($confsec, $opts);
 
     $self->{host_url} = $confsec->value("riak_host_url") || 'http://127.0.0.1:8098';
     $self->{r} = $confsec->value("riak_r");

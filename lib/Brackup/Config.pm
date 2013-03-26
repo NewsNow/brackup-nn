@@ -191,7 +191,7 @@ sub list_targets {
 sub load_target {
     my ($self, $name, %opts) = @_;
     my $testmode = delete $opts{testmode};
-    croak("Unknown options: " . join(', ', keys %opts)) if %opts;
+    # croak("Unknown options: " . join(', ', keys %opts)) if %opts; # These are specified internally anyway
 
     my $confsec = $self->{"TARGET:$name"} or
         die "Unknown target '$name'\n";
@@ -204,7 +204,16 @@ sub load_target {
     my $class = "Brackup::Target::$type";
     eval "use $class; 1;" or die
         "Failed to load ${name}'s driver: $@\n";
-    my $target = $class->new($confsec);
+    my $target;
+    unless( eval {
+        $target = $class->new($confsec, \%opts);
+        1;
+    }){
+        if($@ =~ /^\[NO_DB\]/){
+            die "Could not find the inventory database. If this is the first time you run brackup, use --create-new-inv to create a new inventory.\n";
+        }
+        die $@;
+    }
 
     if (my @unk_config = $confsec->unused_config) {
         die "Unknown config params in TARGET:$name: @unk_config\n"

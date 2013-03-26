@@ -34,8 +34,8 @@ use POSIX qw(_exit);
 #
 
 sub new {
-    my ($class, $confsec) = @_;
-    my $self = $class->SUPER::new($confsec);
+    my ($class, $confsec, $opts) = @_;
+    my $self = $class->SUPER::new($confsec, $opts);
 
     $self->{access_key_id}     = $confsec->value("aws_access_key_id")
         or die "No 'aws_access_key_id'";
