@@ -29,7 +29,7 @@ brackup-target - Manage your backup targets
  $ brackup-target [opts] <target_name> prune   # remove old backups
  $ brackup-target [opts] <target_name> fsck    # check the consistency of the backups and do garbage collection
 
-By default, I<brackup-target> does not execute write operations.
+By default, I<brackup-target> does not execute write or delete operations.
 Use the --execute|-x option to perform all operations instead of doing a dry-run.
 
 =head2 OPTIONS
@@ -38,7 +38,7 @@ Use the --execute|-x option to perform all operations instead of doing a dry-run
 
 =item --execute|-x
 
-Do execute write operations.
+Do execute write and delete operations.
 
 =item --dry-run|-n
 
@@ -88,13 +88,18 @@ instead of attempting to decrypt a metafile loaded from the target.
 =item --skip-gc
 
 To be used in combination with the I<fsck> command.
-Skip garbage collection.
+Skip garbage collection altogether.
 
 =item --force-gc
 
 To be used in combination with the I<fsck> command.
 Force garbage collection even if inconsistencies were found between the metafiles
 and chunks on the target.
+
+=item --ignore-no-metafiles
+
+To be used in combination with the I<fsck> command.
+Continue even if no metafiles were found.
 
 =back
 
@@ -141,6 +146,7 @@ my $opt_source;
 my $opt_nogpg;
 my $opt_skipgc;
 my $opt_forcegc;
+my $opt_ignore_no_meta;
 usage() unless
     GetOptions(
                'verbose+'       => \$opt_verbose,
@@ -155,7 +161,8 @@ usage() unless
                'meta-dir=s'     => \$meta_dir,
                'no-gpg'         => \$opt_nogpg,
                'skip-gc'        => \$opt_skipgc,
-               'force-gc'       => \$opt_forcegc
+               'force-gc'       => \$opt_forcegc,
+               'ignore-no-metafiles' => \$opt_ignore_no_meta
                );
 
 if($opt_execute){
@@ -273,7 +280,8 @@ sub CMD_fsck {
         dryrun => $opt_dryrun,
         interactive => $opt_interactive,
         skip_gc => $opt_skipgc,
-        force_gc => $opt_forcegc
+        force_gc => $opt_forcegc,
+        ignore_no_meta => $opt_ignore_no_meta
     });
 }
 

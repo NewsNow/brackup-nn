@@ -308,6 +308,7 @@ sub prune {
 
 # Opens all metafiles and loops through their sections
 # &$callback( $meta_file_item, $is_header, $backup_name ) is called for each item in each backup
+# Returns the number of metafiles found
 sub loop_items_in_backups {
     my $self = shift;
     my $callback = shift;
@@ -344,6 +345,7 @@ sub loop_items_in_backups {
         }
     }
 
+    return scalar(@backups);
 }
 
 sub fsck {
@@ -373,7 +375,7 @@ sub fsck {
     # Store names of used chunks here
     my %USEDCHUNKS;
 
-    $self->loop_items_in_backups(sub{
+    my $num_metafiles = $self->loop_items_in_backups (sub {
         my $item = shift;
         my $is_header = shift;
         my $backupname = shift;
@@ -485,6 +487,12 @@ sub fsck {
         }
 
     }, $opts);
+
+    # Abort if we haven't managed to collect any data because we haven't found any metafiles.
+    # This can be due to a misconfiguration; for example, the naming prefix is wrong.
+    if( (!$num_metafiles) && (!$opts->{ignore_no_meta}) ){
+        die "Aborting as no metafiles were found. Use --ignore-no-metafiles to ignore this and continue.\n";
+    }
 
     # Check the inventory
     # (At this point, all conflicts inside the target are already reported.)
