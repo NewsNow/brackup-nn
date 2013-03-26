@@ -217,6 +217,7 @@ sub store_backup_meta {
             my $bucket = $self->{s3}->bucket($self->{backup_bucket});
             $bucket->add_key_filename(
                 $self->backuppath($name),
+                $meta->{filename},
                 { content_type => 'x-danga/brackup-meta' }
             );
             # eval {
@@ -224,8 +225,7 @@ sub store_backup_meta {
             #       $meta->{filename},
             #       headers => { content_type => 'x-danga/brackup-meta' }
             #   );
-            };
-    };
+		};
 
     die "Failed to store backup meta file $meta->{filename} to " . $self->backuppath($name) . " in $self->{backup_bucket}" . ($@ && " with exception $@") . "\n";
 }
