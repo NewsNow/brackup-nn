@@ -312,6 +312,22 @@ sub prune {
     return scalar @backups_to_delete;
 }
 
+# Returns the name of the downloaded and optionally decrypted file
+# AND an object that needs to remain in scope until the file is used!
+sub get_and_decrypt_backup {
+    my $self = shift;
+    my $name = shift;
+    my $opt = shift;
+
+    my $tempfile = +(tempfile())[1];
+    $self->get_backup($name, $tempfile) || die "Couldn't load backup from target " . $name;
+
+    # We CANNOT let this go out of scope as then the decrypted file will get deleted!
+    my $fobj = Brackup::DecryptedFile->new(filename => $tempfile, no_gpg => $opt->{no_gpg});
+
+    return ( ($fobj->name || $tempfile), $fobj );
+}
+
 # Opens all metafiles and loops through their sections
 # &$callback( $meta_file_item, $is_header, $backup_name ) is called for each item in each backup
 # Returns the number of metafiles found
@@ -324,7 +340,6 @@ sub loop_items_in_backups {
     # verbose
     # no_gpg
 
-    my $tempfile = +(tempfile())[1];
     my @backups = $self->backups;
     foreach my $i (0 .. $#backups) {
         my $backup = $backups[$i];
@@ -339,10 +354,8 @@ sub loop_items_in_backups {
         # If failed or not available:
         unless($parser){
             warn "Could not find local metafile; falling back to loading it from the target.\n" if $opt->{meta_dir};
-            $self->get_backup($backup->filename, $tempfile) || die "Couldn't load backup from target " . $backup->filename;
-            my $decrypted_backup = new Brackup::DecryptedFile(filename => $tempfile, no_gpg => $opt->{no_gpg});
-            $parser = Brackup::Metafile->open($decrypted_backup->name);
-
+            my ($filename, $fobj) = $self->get_and_decrypt_backup($backup->filename, $opt);
+            $parser = Brackup::Metafile->open($filename);
         }
         my $is_header = 1;
         while (my $it = $parser->readline) {

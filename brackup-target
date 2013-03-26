@@ -78,7 +78,8 @@ Useful if the metafiles on the target are encrypted, as if all metafiles
 are available locally, then these tasks can run without having to enter
 a passphrase for GPG for decryption.
 
-If specified, I<prune> and I<delete_backup> deletes the local metafile as well.
+If specified, I<prune> and I<delete_backup> deletes the local metafile as well,
+and I<get_backup> and I<get_backups> write the backup file to this directory.
 
 =item --no-gpg
 
@@ -133,6 +134,7 @@ software under the terms of same terms as perl itself.
 use strict;
 use warnings;
 use Getopt::Long;
+use File::Copy qw();
 
 use Cwd;
 use FindBin qw($Bin);
@@ -196,6 +198,9 @@ my $target_name = shift or usage();
 my $cmd_name    = shift or usage();
 $cmd_name =~ s/-/_/g;      # accept hyphenated versions of commands
 
+# meta_dir==undef continues to mean that it has not been specified
+$meta_dir = Brackup::Util->fix_meta_dir( $meta_dir, getcwd(), 0 );
+
 my $target = eval { $config->load_target($target_name, create_new_inv => $opt_create_new_inv); } or
     usage($@);
 
@@ -231,28 +236,43 @@ sub CMD_list_backups {
 }
 
 sub CMD_get_backup {
-    my $name = shift @ARGV or
-        die "get_backup requires a filename to download";
-    $target->get_backup($name)
-        or die "Failed to retrieve backup $name\n";
+    my $name = shift;
+    my $silent = shift;
 
-    warn "Retrieved metafile '$name' successfully.\n";
+    unless($silent){
+        $name = shift @ARGV or die "get_backup requires a filename to download";
+    }
+
+    my $finalfile = $meta_dir ? File::Spec->catfile( $meta_dir, $name ) : $name;
+
+    if(-e $finalfile){
+        die "'$finalfile' already exists, aborting\n";
+    }
+
+    my ($tmpfile, $fobj) = $target->get_and_decrypt_backup($name);
+    die "Failed to retrieve backup '$name'\n" unless $tmpfile;
+
+    File::Copy::move($tmpfile, $finalfile) or die "Failed to rename '$tmpfile' to '$finalfile': '$!'\n";
+
+    return if $silent;
+    warn "Successfully retrieved metafile '$name' to '$finalfile'\n";
 }
 
 sub CMD_get_backups {
     &CMD_list_backups(sub {
-                                     my $si = shift;
-                                     my $size = $si->size;
-                                     my $name = $si->filename;
-                                     no warnings 'uninitialized';
-                                     if (-s "$name.brackup" == $size || -s "$name.brackup.orig" == $size || -s "$name" == $size) {
-                                         print " ... OK";
-                                         return;
-                                     }
-                                     print " ... ";
-                                     $target->get_backup($si->filename);
-                                     print "OK";
-                                 });
+        my $si = shift;
+        my $size = $si->size;
+        my $name = $si->filename;
+        $name = File::Spec->catfile( $meta_dir, $name ) if $meta_dir;
+        my $lsize = -s "$name";
+        if ($lsize && $lsize == $size) {
+            print " ... Found";
+            return;
+        }
+        print " ... ";
+        &CMD_get_backup($si->filename, 1);
+        print "OK";
+    });
 }
 
 sub CMD_delete_backup {
@@ -262,9 +282,9 @@ sub CMD_delete_backup {
     die "NOT deleting '$name' in dry-run mode. Use -x to delete.\n" if $opt_dryrun;
 
     $target->delete_backup_and_local_metafile($name, $meta_dir)
-        or die "Failed to delete backup $name\n";
+        or die "Failed to delete metafile '$name'\n";
 
-    warn "Deleted backup metafile $name successfully\n";
+    warn "Successfully deleted backup metafile '$name'\n";
 }
 
 sub CMD_prune {
