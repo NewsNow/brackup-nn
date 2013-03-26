@@ -45,7 +45,7 @@ sub new {
 
     $self->{verbose} = $opts->{verbose};
     $self->{daemons} = $confsec->value("daemons") || '0';
-    $self->{gpg_daemons} = $confsec->value("gpg_daemons") || '0';
+    $self->{gpg_daemons} = $confsec->value("gpg_daemons") || '5';
     $self->{childgroup} = ref($class) ? ref($class) : $class;
     Brackup::ProcManager->set_maximum($self->{childgroup}, $self->{daemons});
 
