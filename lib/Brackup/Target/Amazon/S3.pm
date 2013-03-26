@@ -109,6 +109,7 @@ sub put_multipart {
         my $value = substr $data, 0, $chunksize, '';
         
         print "      * putting part $part (" . length($value) . "/" . length($args{value}) . ")...\n" if $self->{verbose};
+		  my $put_part_response;
         unless( $put_part_response = $self->put_part(
 			  bucket => $args{bucket},
 			  key => $args{key},
