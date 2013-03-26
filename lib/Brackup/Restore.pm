@@ -53,7 +53,8 @@ sub new {
 
     $self->{metafile} = Brackup::DecryptedFile->new(filename => $self->{filename});
 
-    Brackup::ProcManager->set_maximum('restore', $self->{daemons}) if $self->{daemons};
+    # We start with 1 and only use more if one download/decrypt is successful
+    Brackup::ProcManager->set_maximum('restore', 1) if $self->{daemons};
     $self->{childerrors} = [];
 
     return $self;
@@ -370,6 +371,7 @@ sub restore_daemon_handler {
     my ($self, $flag, $data) = @_;
 
     if($flag eq 'inchild'){
+
         if(eval {
             $self->__restore_file( @{ $data->{data} } );
             1;
@@ -378,8 +380,10 @@ sub restore_daemon_handler {
         }
         print $@; # Sending error to parent
         return -1;
+
     }
     elsif($flag eq 'childexit'){
+
         my $code = $data->{retcode};
         my $fh = $data->{fh};
         local $/;
@@ -388,8 +392,12 @@ sub restore_daemon_handler {
             die "Restore daemon returned '$r' with code '$code' PID '$data->{pid}'" unless $self->{onerror} eq 'continue';
             push @{ $self->{childerrors} }, $r if $code != 0;
         }
-    }
+        else{
+            # Now we can use all threads
+            Brackup::ProcManager->set_maximum('restore', $self->{daemons});
+        }
 
+    }
 }
 
 sub __restore_file {
