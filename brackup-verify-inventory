@@ -1,5 +1,8 @@
 #!/usr/bin/perl
 
+die "This script is superseded by 'brackup-target <TARGET> fsck'\n";
+####################################################################
+
 # LICENCE INFORMATION
 #
 # This file is part of brackup-nn, a backup tool based on Brackup.
@@ -21,7 +24,7 @@ eval 'exec /usr/bin/perl  -S $0 ${1+"$@"}'
 
 =head1 NAME
 
-brackup-verify-inventory - utility to validate brackup inventory entries 
+brackup-verify-inventory - utility to validate brackup inventory entries
 against the target
 
 =head1 SYNOPSIS
@@ -34,7 +37,7 @@ against the target
 
 =item <target_name>
 
-Required. The name of the brackup target whose inventory you wish to verify. 
+Required. The name of the brackup target whose inventory you wish to verify.
 This must match a [TARGET:NAME] config section in your ~/.brackup.conf.
 
 =back
@@ -99,7 +102,7 @@ my $config_file = Brackup::Config->default_config_file_name;
 
 sub usage {
     my $why = shift || "";
-    if ($why) { 
+    if ($why) {
         $why =~ s/\s+$//;
         $why = "Error: $why\n\n";
     }
@@ -165,7 +168,7 @@ while (my ($key, $value) = $inv_db->each) {
         printf "Checked %s inventory entries (%0.1f%%)\n", $count, $count / $total
             if $count && $count % 1000 == 0;
     }
-    elsif ($opt_verbose && $opt_verbose >= 2) { 
+    elsif ($opt_verbose && $opt_verbose >= 2) {
         printf "Checking %s, size %s (%0.01f%%)\n", $path, $size, $count / $total;
     }
 
@@ -200,7 +203,7 @@ while (my ($key, $value) = $inv_db->each) {
     }
 }
 
-print "Checked $count inventory entries, $ok good, $bad bad, $skip skipped.\n" 
+print "Checked $count inventory entries, $ok good, $bad bad, $skip skipped.\n"
     unless $opt_quiet;
 exit $bad ? 1 : 0;
 
