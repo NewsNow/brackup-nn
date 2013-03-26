@@ -24,6 +24,7 @@ use vars qw(@ISA @EXPORT_OK);
 @EXPORT_OK = qw(tempfile tempfile_obj tempdir slurp valid_params noclobber_filename io_print_to_fh io_sha1);
 
 use File::Path qw();
+use File::Spec;
 use Carp;
 use Fcntl qw(O_RDONLY);
 use Digest::SHA1;
@@ -175,6 +176,20 @@ sub human2unix {
       ( ( ( int( $year / 4 ) - int( $year / 100 ) + int( $year / 400 ) + int( 367 * $mon / 12 ) + $day ) + $year * 365 - 719499 ) * 24 + $hour    # /* now have hours */
       ) * 60 + $min                                                                                                                                # /* now have minutes */
    ) * 60 + $sec;                                                                                                                                  # /* finally seconds */
+}
+
+sub fix_meta_dir {
+    my $class = shift;
+    my $meta_dir = shift;
+    my $cwd = shift;
+    my $default_to_cwd = shift;
+
+    if($meta_dir){
+        return File::Spec->catdir($cwd, $meta_dir) unless $meta_dir =~ /^\//;
+    }
+
+    return $cwd if $default_to_cwd;
+    return undef;
 }
 
 1;

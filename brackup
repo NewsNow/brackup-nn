@@ -220,12 +220,7 @@ my $backup = Brackup::Backup->new(
                                   );
 
 # Fix meta_dir (cwd will change!)
-if($meta_dir){
-    $meta_dir = File::Spec->catdir($cwd, $meta_dir) unless $meta_dir =~ /^\//;
-}
-else{
-    $meta_dir = $cwd;
-}
+$meta_dir = Brackup::Util->fix_meta_dir( $meta_dir, $cwd, 1 );
 
 if (my ($stats, $backup_file) = eval { $backup->backup($meta_dir) }) {
     warn "Backup complete.\n" if $opt_verbose;
