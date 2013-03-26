@@ -78,13 +78,9 @@ sub start_child {
         return $obj->$method('inparent', $CHILDREN{$pid});
     }
 
-   # in child
+    # in child
 
-   # See http://perldoc.perl.org/perlfork.html
-   # On some operating systems, notably Solaris and Unixware, calling exit()
-   # from a child process will flush and close open filehandles in the parent,
-   # thereby corrupting the filehandles. On these systems, calling _exit() is
-   # suggested instead.
+    srand($$ . time());
 
     my $r;
     unless(eval {
@@ -95,6 +91,12 @@ sub start_child {
         $r = -1;
     }
     File::Temp::cleanup(); # only removes temp resources created by the child process
+
+    # See http://perldoc.perl.org/perlfork.html
+    # On some operating systems, notably Solaris and Unixware, calling exit()
+    # from a child process will flush and close open filehandles in the parent,
+    # thereby corrupting the filehandles. On these systems, calling _exit() is
+    # suggested instead.
     _exit($r);
 
 }
