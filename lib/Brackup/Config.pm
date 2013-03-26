@@ -170,6 +170,11 @@ sub load_root {
         $root->ignore($pat);
     }
 
+    # iterate over config's accept, and add those
+    foreach my $pat ($conf->values("accept")) {
+        $root->accept($pat);
+    }
+
     # abort if the user had any configuration we didn't understand
     if (my @keys = $conf->unused_config) {
         die "Aborting, unknown configuration keys in SOURCE:$name: @keys\n";
@@ -191,7 +196,6 @@ sub list_targets {
 sub load_target {
     my ($self, $name, %opts) = @_;
     my $testmode = delete $opts{testmode};
-    # croak("Unknown options: " . join(', ', keys %opts)) if %opts; # These are specified internally anyway
 
     my $confsec = $self->{"TARGET:$name"} or
         die "Unknown target '$name'\n";
@@ -204,6 +208,7 @@ sub load_target {
     my $class = "Brackup::Target::$type";
     eval "use $class; 1;" or die
         "Failed to load ${name}'s driver: $@\n";
+	 
     my $target;
     unless( eval {
         $target = $class->new($confsec, \%opts);

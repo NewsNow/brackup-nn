@@ -206,9 +206,8 @@ sub usage {
 my $root = eval { $config->load_root($src_name); } or
     usage($@);
 
-my $target = eval { $config->load_target($target_name, create_new_inv => $opt_create_new_inv); } or
+my $target = eval { $config->load_target($target_name, create_new_inv => $opt_create_new_inv, verbose => $opt_verbose); } or
     usage($@);
-
 
 my $backup = Brackup::Backup->new(
                                   root           => $root,

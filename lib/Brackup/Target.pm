@@ -43,6 +43,7 @@ sub new {
                                         $confsec,
                                         $opts->{create_new_inv});
 
+    $self->{verbose} = $opts->{verbose};
     $self->{daemons} = $confsec->value("daemons") || '0';
     $self->{gpg_daemons} = $confsec->value("gpg_daemons") || '0';
     $self->{childgroup} = ref($class) ? ref($class) : $class;
@@ -215,6 +216,10 @@ sub delete_backup_and_local_metafile {
 sub delete_backup {
     my ($self, $name) = @_;
     die "ERROR: delete_backup method not implemented in sub-class $self";
+}
+
+# cleanup the given backup from this target
+sub cleanup {
 }
 
 # removes old metafiles from this target
