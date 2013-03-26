@@ -21,6 +21,7 @@ use base 'Brackup::Target';
 use Net::Amazon::S3 0.42;
 use DateTime::Format::ISO8601;
 use POSIX qw(_exit);
+use Brackup::Target::Amazon::S3;
 
 # fields in object:
 #   s3  -- Net::Amazon::S3
@@ -34,8 +35,8 @@ use POSIX qw(_exit);
 #
 
 sub new {
-    my ($class, $confsec) = @_;
-    my $self = $class->SUPER::new($confsec);
+    my ($class, $confsec, %opts) = @_;
+    my $self = $class->SUPER::new($confsec, %opts);
 
     $self->{access_key_id}     = $confsec->value("aws_access_key_id")
         or die "No 'aws_access_key_id'";
@@ -46,7 +47,10 @@ sub new {
     $self->{backup_prefix} = $confsec->value("backup_prefix") || undef;
     $self->{backup_path_prefix} = $confsec->value("backup_path_prefix") || 'backups/';
     $self->{chunk_path_prefix} = $confsec->value("chunk_path_prefix") || 'chunks/';
-
+    $self->{multipart_threshold} = $confsec->byte_value("multipart_threshold") || 10*1024*1024;
+    $self->{multipart_part_size} = $confsec->byte_value("multipart_part_size") || 10*1024*1024;
+    die "multipart_part_size ($self->{multipart_part_size}) smaller than S3 minimum (5MB)\n" if $self->{multipart_part_size} < 5*1024*1024;
+    
     $self->_common_s3_init;
 
     my $s3      = $self->{s3};
@@ -76,6 +80,12 @@ sub _common_s3_init {
         retry                 => 1,
         secure                => 1
     });
+    $self->{s3c} = Brackup::Target::Amazon::S3->new(
+         's3c' => Net::Amazon::S3::Client->new( s3 => $self->{s3} ),
+         'multipart_threshold' => $self->{multipart_threshold},
+         'multipart_part_size' => $self->{multipart_part_size},
+         'verbose' => $self->{verbose}
+     );
 }
 
 # ghetto
@@ -154,40 +164,13 @@ sub store_chunk {
 
 sub _store_chunk {
     my ($self, $chunk) = @_;
-    # my ($self, $chunk, $dig, $chunkref) = @_;
     my $dig = $chunk->backup_digest;
     my $fh = $chunk->chunkref;
     my $chunkref = do { local $/; <$fh> };
 
-    my $try = sub {
-        eval {
-            my $bucket = $self->{s3}->bucket($self->{chunk_bucket});
-            my $r = $bucket->add_key(
-                $self->chunkpath($dig),
-                $chunkref,
-                { content_type  => 'x-danga/brackup-chunk' }
-            );
-            return $r;
-        };
-    };
-
-    my $rv;
-    my $n_fails = 0;
-    while (!$rv && $n_fails < 12) {
-        $rv = $try->();
-        last if $rv;
-
-        # transient failure?
-        $n_fails++;
-        my $tosleep = $n_fails > 5 ? ( $n_fails > 10 ? 300 : 30 ) : 5;
-        warn "Error uploading chunk $chunk [$@]... will do retry \#$n_fails in $tosleep seconds ...\n";
-        sleep $tosleep;
-    }
-    unless ($rv) {
-        warn "Error uploading chunk again: " . $self->{s3}->errstr . "\n";
-        return 0;
-    }
-    return 1;
+    return $self->{s3c}->put( bucket => $self->{chunk_bucket}, key => $self->chunkpath($dig), value => $chunkref,
+         headers => { content_type  => 'x-danga/brackup-chunk', 'x-amz-server-side-encryption' => 'AES256' }
+     );
 }
 
 sub delete_chunk {
@@ -230,13 +213,18 @@ sub store_backup_meta {
     $name = $self->{backup_prefix} . "-" . $name if defined $self->{backup_prefix};
 
     return 1 if
-	  eval {
-        my $bucket = $self->{s3}->bucket($self->{backup_bucket});
-        $bucket->add_key_filename(
-            $self->backuppath($name),
-            $meta->{filename},
-            { content_type => 'x-danga/brackup-meta' },
-         );
+      eval {
+            my $bucket = $self->{s3}->bucket($self->{backup_bucket});
+            $bucket->add_key_filename(
+                $self->backuppath($name),
+                { content_type => 'x-danga/brackup-meta' }
+            );
+            # eval {
+            #   return $self->{s3c}->put( bucket => $self->{backup_bucket}, key => $self->backuppath($name), 
+            #       $meta->{filename},
+            #       headers => { content_type => 'x-danga/brackup-meta' }
+            #   );
+            };
     };
 
     die "Failed to store backup meta file $meta->{filename} to " . $self->backuppath($name) . " in $self->{backup_bucket}" . ($@ && " with exception $@") . "\n";
@@ -307,6 +295,12 @@ sub size {
     return 0 if $@ && $@ =~ /key not found/;
     return 0 unless $res->{content_type} eq "x-danga/brackup-chunk";
     return $res->{content_length};
+}
+
+sub cleanup {
+     my $self = shift;
+     $self->{s3c}->abort_multipart_uploads( bucket => $self->{chunk_bucket} );
+     $self->{s3c}->abort_multipart_uploads( bucket => $self->{backup_bucket} );
 }
 
 1;
