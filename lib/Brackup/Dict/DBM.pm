@@ -28,6 +28,10 @@ sub new {
         data  => {},
     }, $class;
 
+    unless( $opts{create_new} || -e $opts{file} ){
+        die "[NO_DB] DB file not found - need to create new one?";
+    }
+
     my %dbm;
     tie %dbm, 'AnyDBM_File', $self->{file}, O_CREAT | O_RDWR, 0644 or
         die "Failed to bind to DBM digest cache at $self->{file}: $!";

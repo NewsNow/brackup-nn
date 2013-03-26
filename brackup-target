@@ -27,11 +27,10 @@ brackup-target - Manage your backup targets
  $ brackup-target [opts] <target_name> get_backups
  $ brackup-target [opts] <target_name> delete_backup <backup_file>
  $ brackup-target [opts] <target_name> prune   # remove old backups
- $ brackup-target [opts] <target_name> gc      # run garbage collector
- $ brackup-target [opts] <target_name> sync_inv # sync the inventory database with items on the target
+ $ brackup-target [opts] <target_name> fsck    # check the consistency of the backups and do garbage collection
 
-By default, I<brackup-target> does not execute write operations.
-Use the --execute|-x option to perform all operations and not to do a dry-run.
+By default, I<brackup-target> does not execute write or delete operations.
+Use the --execute|-x option to perform all operations instead of doing a dry-run.
 
 =head2 OPTIONS
 
@@ -39,7 +38,12 @@ Use the --execute|-x option to perform all operations and not to do a dry-run.
 
 =item --execute|-x
 
-Do execute write operations.
+Do execute write and delete operations.
+
+=item --dry-run|-n
+
+For backwards compatibility, this option is retained.
+This is now the default behaviour, which can be overridden by --execute.
 
 =item --dest=DIR
 
@@ -48,6 +52,7 @@ Destination to write files to.  Defaults to current working directory.
 =item --verbose|-v
 
 Be verbose with status.
+Can be specified multiple times to increase the level of verbosity.
 
 =item --keep-backups
 
@@ -61,13 +66,13 @@ prune operation to only delete backup files from the given I<source>.
 
 =item --interactive
 
-To be used in combination with the I<gc> command. Runs interactively,
+To be used in combination with the I<fsck> command. Runs interactively,
 requiring an explicit confirmation before deleting chunks that have been
 garbage collected. Implies --verbose.
 
 =item --meta-dir=DIR
 
-If specified, allows I<gc> and I<sync_inv> to use local metafiles, if available.
+If specified, allows I<fsck> to use local metafiles, if available.
 The list of metafiles is still loaded from the target.
 Useful if the metafiles on the target are encrypted, as if all metafiles
 are available locally, then these tasks can run without having to enter
@@ -79,6 +84,29 @@ If specified, I<prune> and I<delete_backup> deletes the local metafile as well.
 
 Use together with --meta-dir. If specified, brackup-target will abort
 instead of attempting to decrypt a metafile loaded from the target.
+
+=item --skip-gc
+
+To be used in combination with the I<fsck> command.
+Skip garbage collection altogether.
+
+=item --force-gc
+
+To be used in combination with the I<fsck> command.
+Force garbage collection even if inconsistencies were found between the metafiles
+and chunks on the target.
+
+=item --ignore-no-metafiles
+
+To be used in combination with the I<fsck> command.
+Continue even if no metafiles were found.
+
+=item --create-new-inv
+
+By default, brackup-target aborts if it cannot find the inventory database
+instead of re-uploading all the files.
+When running brackup for the first time, use --create-new-inv
+to create a new inventory.
 
 =back
 
@@ -122,22 +150,33 @@ my $opt_execute;
 my $opt_dryrun;
 my $opt_interactive;
 my $opt_source;
-my $opt_nogpg;
+my ($opt_nogpg, $opt_skipgc, $opt_forcegc, $opt_ignore_no_meta, $opt_create_new_inv);
 usage() unless
     GetOptions(
                'verbose+'       => \$opt_verbose,
                'dest=s'         => \$destdir,
                'config=s'       => \$config_file,
                'keep-backups=i' => \$opt_keep_backups,
+               'dry-run|n'      => \$opt_dryrun,
                'execute|x'      => \$opt_execute,
                'interactive'    => \$opt_interactive,
                'source=s'       => \$opt_source,
                'help'           => \$opt_help,
                'meta-dir=s'     => \$meta_dir,
-               'no-gpg'         => \$opt_nogpg
+               'no-gpg'         => \$opt_nogpg,
+               'skip-gc'        => \$opt_skipgc,
+               'force-gc'       => \$opt_forcegc,
+               'ignore-no-metafiles' => \$opt_ignore_no_meta,
+               'create-new-inv' => \$opt_create_new_inv
                );
 
-$opt_dryrun = $opt_execute ? 0 : 1;
+if($opt_execute){
+    if($opt_dryrun){
+        die "--dry-run and --execute cannot be specified at the same time!";
+    }
+}else{
+    $opt_dryrun = 1;
+}
 
 if ($destdir) {
     chdir $destdir or die "Failed to chdir to $destdir: $!\n";
@@ -148,7 +187,7 @@ if ($opt_help) {
     Pod::Usage::pod2usage( -verbose => 1, -exitval => 0 );
     exit 0;
 }
-$opt_verbose ||= 1 if $opt_interactive || $opt_dryrun;
+$opt_verbose ||= 1 if $opt_interactive;
 
 my $config = eval { Brackup::Config->load($config_file) } or
     usage($@);
@@ -157,12 +196,13 @@ my $target_name = shift or usage();
 my $cmd_name    = shift or usage();
 $cmd_name =~ s/-/_/g;      # accept hyphenated versions of commands
 
-my $target = eval { $config->load_target($target_name); } or
+my $target = eval { $config->load_target($target_name, create_new_inv => $opt_create_new_inv); } or
     usage($@);
 
 my $code = __PACKAGE__->can("CMD_$cmd_name") or
     usage("Unknown/unimplemented command.");
 
+# Return code: 0 if method returns true; otherwise 1
 exit($code->() ? 0 : 1);
 
 sub CMD_list_backups {
@@ -236,23 +276,17 @@ sub CMD_prune {
     debug("$removed_count backups " . ($opt_dryrun ? "would be " : "") . "removed from target");
 }
 
-sub CMD_gc {
-    my ($removed_chunks, $total_chunks) = $target->gc(dryrun => $opt_dryrun,
-                                                      verbose => $opt_verbose,
-                                                      interactive => $opt_interactive,
-                                                      meta_dir => $meta_dir,
-                                                      no_gpg => $opt_nogpg);
-    debug("$removed_chunks/$total_chunks chunks " . ($opt_dryrun ? "would be " : "") .
-          "removed from target");
-}
-
-sub CMD_sync_inv {
-    warn "Syncing metafiles and chunks on the target with the inventory\n";
-    $target->sync_inv({
+sub CMD_fsck {
+    warn "Running fsck...\n";
+    return $target->fsck({
         meta_dir => $meta_dir,
         no_gpg => $opt_nogpg,
         verbose => $opt_verbose,
-        dryrun => $opt_dryrun
+        dryrun => $opt_dryrun,
+        interactive => $opt_interactive,
+        skip_gc => $opt_skipgc,
+        force_gc => $opt_forcegc,
+        ignore_no_meta => $opt_ignore_no_meta
     });
 }
 
@@ -261,7 +295,6 @@ sub debug {
     return unless $opt_verbose;
     warn "$msg\n";
 }
-
 
 sub usage {
     my $why = shift || "";

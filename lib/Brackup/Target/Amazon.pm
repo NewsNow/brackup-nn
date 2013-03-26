@@ -35,8 +35,8 @@ use Brackup::Target::Amazon::S3;
 #
 
 sub new {
-    my ($class, $confsec, %opts) = @_;
-    my $self = $class->SUPER::new($confsec, %opts);
+    my ($class, $confsec, $opts) = @_;
+    my $self = $class->SUPER::new($confsec, $opts);
 
     $self->{access_key_id}     = $confsec->value("aws_access_key_id")
         or die "No 'aws_access_key_id'";

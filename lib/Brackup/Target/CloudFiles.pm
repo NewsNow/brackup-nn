@@ -34,9 +34,9 @@ eval { require Net::Mosso::CloudFiles } or die "You need the Net::Mosso::CloudFi
 #
 
 sub new {
-    my ($class, $confsec) = @_;
-    my $self = $class->SUPER::new($confsec);
-    
+    my ($class, $confsec, $opts) = @_;
+    my $self = $class->SUPER::new($confsec, $opts);
+
     $self->{username} = $confsec->value("cf_username")
         or die "No 'cf_username'";
     $self->{apiKey} = $confsec->value("cf_api_key")
@@ -53,13 +53,13 @@ sub _common_cf_init {
     $self->{backupContainerName} = $self->{username} . "-backups";
 
     $self->{cf} = Net::Mosso::CloudFiles->new(
-		user => $self->{username}, 
+		user => $self->{username},
 		key => $self->{apiKey}
 	);
 
 	#createContainer makes the object and returns it, or returns it
 	#if it already exists
-	$self->{chunkContainer} = 
+	$self->{chunkContainer} =
 		$self->{cf}->create_container(name => $self->{chunkContainerName})
 			or die "Failed to get chunk container";
 	$self->{backupContainer} =
@@ -79,12 +79,12 @@ sub _prompt {
 sub new_from_backup_header {
     my ($class, $header, $confsec) = @_;
 
-    my $username  = ($ENV{'CF_USERNAME'} || 
+    my $username  = ($ENV{'CF_USERNAME'} ||
         $confsec->value('cf_username') ||
 		_prompt("Your CloudFiles username: "))
         or die "Need your Cloud Files username.\n";
 
-    my $apiKey = ($ENV{'CF_API_KEY'} || 
+    my $apiKey = ($ENV{'CF_API_KEY'} ||
         $confsec->value('cf_api_key') ||
 		_prompt("Your CloudFiles api key: "))
         or die "Need your CloudFiles api key.\n";
@@ -163,7 +163,7 @@ sub backups {
     my $self = shift;
 
     my @ret;
-	
+
 	my @backups = $self->{backupContainer}->objects->all;
 
     foreach my $backup (@backups) {
@@ -178,7 +178,7 @@ sub backups {
 sub get_backup {
     my $self = shift;
     my ($name, $output_file) = @_;
-	
+
 	my $val = $self->{backupContainer}->object(name => $name)->get
 		or return 0;
 
@@ -187,7 +187,7 @@ sub get_backup {
 
     my $outv = syswrite($out, $val);
 
-    die "download/write error" unless 
+    die "download/write error" unless
 		$outv == do { use bytes; length $val };
     close $out;
 

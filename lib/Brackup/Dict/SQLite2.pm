@@ -29,6 +29,10 @@ sub new {
         file  => $opts{file},
     }, $class;
 
+    unless( $opts{create_new} || -e $opts{file} ){
+        die "[NO_DB] DB file not found - need to create new one?";
+    }
+
     my $dbh = $self->{dbh} = DBI->connect("dbi:SQLite:dbname=$opts{file}","","", { RaiseError => 1, PrintError => 0 }) or
         die "Failed to connect to SQLite filesystem digest cache database at $opts{file} " . DBI->errstr;
 
@@ -93,17 +97,17 @@ sub backing_file {
 
 =head1 NAME
 
-Brackup::Dict::SQLite2 - key-value dictionary implementation, using a 
-SQLite database for storage (lighter/slower version of 
+Brackup::Dict::SQLite2 - key-value dictionary implementation, using a
+SQLite database for storage (lighter/slower version of
 Brackup::Dict::SQLite)
 
 =head1 DESCRIPTION
 
 Brackup::Dict::SQLite2 implements a simple key-value dictionary using
-a SQLite database for storage. Brackup::Dict::SQLite2 is identical to 
-L<Brackup::Dict::SQLite> (so see that for more details), but it uses 
-conventional database cursors/iterators for all operations, instead of 
-pre-loading the entire database into memory. As such, it is slightly 
+a SQLite database for storage. Brackup::Dict::SQLite2 is identical to
+L<Brackup::Dict::SQLite> (so see that for more details), but it uses
+conventional database cursors/iterators for all operations, instead of
+pre-loading the entire database into memory. As such, it is slightly
 slower than Brackup::Dict::SQLite, but uses much less memory.
 
 See L<Brackup::DigestCache> and L<Brackup::InventoryDatabase> for

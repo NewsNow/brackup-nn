@@ -26,8 +26,8 @@ use Brackup::Util qw(io_print_to_fh);
 
 
 sub new {
-    my ($class, $confsec) = @_;
-    my $self = $class->SUPER::new($confsec);
+    my ($class, $confsec, $opts) = @_;
+    my $self = $class->SUPER::new($confsec, $opts);
 
     $self->{path} = $confsec->path_value("path");
     $self->{nocolons} = $confsec->value("no_filename_colons");
