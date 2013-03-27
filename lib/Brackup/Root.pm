@@ -145,20 +145,22 @@ sub foreach_file {
         no_chdir => 1,
         preprocess => sub {
             my $dir = $File::Find::dir;
+            my $digcache_file = $self->{digcache_file};
             my @good_dentries;
           DENTRY:
             foreach my $dentry (@_) {
                 next if $dentry eq "." || $dentry eq "..";
 
                 my $path = "$dir/$dentry";
-                $path =~ s!^\./!!;
-
+                    
                 # skip the digest database file.  not sure if this is smart or not.
                 # for now it'd be kinda nice to have, but it's re-creatable from
                 # the backup meta files later, so let's skip it.
-                next if $self->{digcache_file} && $path eq $self->{digcache_file};
+                if($digcache_file) {
+                    next if $path =~ m!\Q$digcache_file\E(-journal)?$!s;
+                }
 
-                next if $path =~ m!(^|/)\.brackup-digest\.db(-journal)?$!;
+                $path =~ s!^\./!!;
 
                 # GC: seems to work fine as of at least gpg 1.4.5, so commenting out
                 # gpg seems to barf on files ending in whitespace, blowing
