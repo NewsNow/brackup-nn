@@ -185,7 +185,8 @@ sub fix_meta_dir {
     my $default_to_cwd = shift;
 
     if($meta_dir){
-        return File::Spec->catdir($cwd, $meta_dir) unless $meta_dir =~ /^\//;
+        # If meta_dir is relative, derive new meta_dir path from current working directory.
+        return ($meta_dir =~ /^\//) ? $meta_dir : File::Spec->catdir($cwd, $meta_dir);
     }
 
     return $cwd if $default_to_cwd;
