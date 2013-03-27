@@ -81,6 +81,7 @@ sub start_child {
     # in child
 
     srand($$ . time());
+    setpgrp(); # prevent the child process from being killed by ^C on terminal
 
     my $r;
     unless(eval {
