@@ -260,7 +260,7 @@ sub prune {
             push @{ $backup_objs{$1} }, $b;
         }
         else {
-            warn "Unexpected backup name format: '$backup_name'";
+            die "Unexpected backup name format: '$backup_name'";
         }
     }
 
@@ -304,9 +304,9 @@ sub prune {
         }
     }
 
-    warn ($opt{dryrun} ? "Pruning:\n" : "Pruned:\n") if $opt{verbose};
+    warn ($opt{dryrun} ? "Would prune:\n" : "Pruned:\n") if $opt{verbose} || $opt{dryrun};
     foreach my $backup_name (@backups_to_delete) {
-        warn "  $backup_name\n" if $opt{verbose};
+        warn "  $backup_name\n" if $opt{verbose} || $opt{dryrun};
         $self->delete_backup_and_local_metafile($backup_name, $opt{meta_dir}) unless $opt{dryrun};
     }
     return scalar @backups_to_delete;
