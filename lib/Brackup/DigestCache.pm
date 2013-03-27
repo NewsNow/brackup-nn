@@ -17,13 +17,14 @@
 package Brackup::DigestCache;
 use strict;
 use warnings;
+use File::Spec;
 
 sub new {
     my ($class, $root, $rconf) = @_;
     my $self = bless {}, $class;
 
     my $file = $rconf->value('digestdb_file') ||
-              ($root->path . '/' . default_filename());
+      File::Spec->catfile($root->path, default_filename());
     my $type = $rconf->value('digestdb_type') || 'SQLite2';
 
     my $dict_class = "Brackup::Dict::$type";

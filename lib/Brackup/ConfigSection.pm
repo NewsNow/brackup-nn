@@ -17,6 +17,7 @@
 package Brackup::ConfigSection;
 use strict;
 use warnings;
+use File::Spec;
 
 sub new {
     my ($class, $name) = @_;
@@ -44,8 +45,8 @@ sub unused_config {
 sub path_value {
     my ($self, $key) = @_;
     my $val = $self->value($key) || "";
-    die "Path '$key' of '$val' isn't a valid directory\n"
-        unless $val && -d $val;
+    die "Path '$key' of '$val' isn't a valid absolute directory path\n"
+        unless $val && -d $val && File::Spec->file_name_is_absolute($val);
     return $val;
 }
 
