@@ -87,6 +87,8 @@ sub restore {
     # If no config section, use an empty one up with no keys to simplify Target handling
     $confsec ||= Brackup::ConfigSection->new('fake');
 
+    $confsec->parse_globals_for_target();
+
     eval "use $driver_class; 1;" or die
         "Failed to load driver ($driver_class) to restore from: $@\n";
     my $target = eval {"$driver_class"->new_from_backup_header($driver_meta, $confsec); };

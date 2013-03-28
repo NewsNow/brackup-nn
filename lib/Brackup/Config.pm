@@ -22,6 +22,9 @@ use warnings;
 use Carp qw(croak);
 use Fcntl qw(O_WRONLY O_CREAT O_EXCL);
 
+# Storage of config values that should be accessible to all of the code
+our %CONFIG;
+
 sub new {
     my ($class) = @_;
     return bless {}, $class;
@@ -193,6 +196,7 @@ sub list_targets {
     return sort map { s/^TARGET://; $_ } grep(/^TARGET:/, keys %$self);
 }
 
+# WARNING: brackup-restore does not use load_target
 sub load_target {
     my ($self, $name, %opts) = @_;
     my $testmode = delete $opts{testmode};
@@ -208,6 +212,8 @@ sub load_target {
     my $class = "Brackup::Target::$type";
     eval "use $class; 1;" or die
         "Failed to load ${name}'s driver: $@\n";
+
+    $confsec->parse_globals_for_target();
 
     my $target;
     unless( eval {

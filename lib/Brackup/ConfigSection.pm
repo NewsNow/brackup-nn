@@ -102,4 +102,11 @@ sub keys {
     return grep !/^_/, keys %$self;
 }
 
+# Export specific keys from the target config into %Brackup::Config::CONFIG
+sub parse_globals_for_target {
+    my $self = shift;
+
+    $Brackup::Config::CONFIG{'target'}->{'local_tmp'} = $self->value('local_tmp');
+}
+
 1;
