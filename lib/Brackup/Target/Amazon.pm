@@ -214,17 +214,10 @@ sub store_backup_meta {
 
     return 1 if
       eval {
-            my $bucket = $self->{s3}->bucket($self->{backup_bucket});
-            $bucket->add_key_filename(
-                $self->backuppath($name),
-                $meta->{filename},
-                { content_type => 'x-danga/brackup-meta' }
-            );
-            # eval {
-            #   return $self->{s3c}->put( bucket => $self->{backup_bucket}, key => $self->backuppath($name), 
-            #       $meta->{filename},
-            #       headers => { content_type => 'x-danga/brackup-meta' }
-            #   );
+			return $self->{s3c}->put( bucket => $self->{backup_bucket}, key => $self->backuppath($name), 
+				value => Brackup::Util::slurp($meta->{filename}),
+				headers => { content_type => 'x-danga/brackup-meta' }
+			);
 		};
 
     die "Failed to store backup meta file $meta->{filename} to " . $self->backuppath($name) . " in $self->{backup_bucket}" . ($@ && " with exception $@") . "\n";
