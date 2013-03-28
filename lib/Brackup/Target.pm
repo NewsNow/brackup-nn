@@ -783,7 +783,8 @@ and the list of metafiles (i.e. backups) is still loaded from the target.)
 This is useful if the metafiles on the target are encrypted, as if all metafiles
 are available locally, then these tasks can run without having to enter
 a passphrase for GPG for decryption.
-Also, I<brackup-target prune> and I<delete_backup> deletes the local metafile as well,
+
+Also, I<brackup-target prune> and I<delete_backup> delete the local metafile as well,
 and I<get_backup> and I<get_backups> write the backup file to this directory.
 
 See also the --meta-dir command-line option of I<brackup> and I<brackup-target>.
