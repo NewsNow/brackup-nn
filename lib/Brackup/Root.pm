@@ -52,8 +52,7 @@ sub new {
     $self->{digcache}   = Brackup::DigestCache->new($self, $conf);
     $self->{digcache_file} = $self->{digcache}->backing_file;  # may be empty, if digest cache doesn't use a file
 
-    $self->{noatime}    = $conf->value('noatime');
-
+    $self->{noatime}     = $conf->value('noatime');
     $self->{webhook_url} = $conf->value('webhook_url');
 
     return $self;
@@ -112,16 +111,16 @@ sub accept {
          my $cond = $1;
          $pattern =~ s{^/}{}s;
          my $pattern_re = quotemeta($pattern);
-         
+
          # 1. ^\*     => [^/]+
          # 2. /\*     => /[^/]+
          # 3. /\w+\*  => /\w+[^/]*
-         
+
          $pattern_re =~ s!(^|/)\\\*!$1\[^/\]+!sg;
          $pattern_re =~ s!(/?[^/\*]+)\\\*!$1\[^/\]*!sg;
-         
+
          $pattern_re = '^' . $pattern_re;
-         
+
          push @{ $self->{accept} }, [ $cond eq '=' ? 1 : 0, $pattern_re, $pattern ];
      }
 }
@@ -152,7 +151,7 @@ sub foreach_file {
                 next if $dentry eq "." || $dentry eq "..";
 
                 my $path = "$dir/$dentry";
-                    
+
                 # skip the digest database file.  not sure if this is smart or not.
                 # for now it'd be kinda nice to have, but it's re-creatable from
                 # the backup meta files later, so let's skip it.
@@ -172,18 +171,18 @@ sub foreach_file {
 
                 my $statobj = File::stat::lstat($path);
                 my $is_dir = -d _;
-                
+
                 foreach my $pattern (@{ $self->{ignore} }) {
                     next DENTRY if $path =~ /$pattern/;
                     next DENTRY if $is_dir && "$path/" =~ /$pattern/;
                 }
-                    
+
                 if(@{ $self->{accept} }) {
                          my $npath = $path;
                          $npath .= '/' if $is_dir;
-                         
+
                          my $dbg = "$npath:\n";
-                         
+
                          my $rule_outcome = 0;
                          foreach my $rule (@{ $self->{accept} }) {
                              my $cond = $rule->[0];
@@ -203,10 +202,10 @@ sub foreach_file {
                                  ;
                              }
                              $dbg .= "=> outcome:" . ($rule_outcome ? 'accept' : 'ignore') . "\n";
-                             
+
                              # print $dbg;
                          }
-                         
+
                          next DENTRY unless $rule_outcome;
                      }
 
@@ -385,7 +384,7 @@ for the ID3 tags, and one big one for the music bytes.
 
 =item B<inherit>
 
-The name of another Brackup::Root section to inherit from i.e. to use 
+The name of another Brackup::Root section to inherit from i.e. to use
 for any parameters that are not already defined in the current section.
 The example above could also be written:
 
