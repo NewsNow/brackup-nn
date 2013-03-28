@@ -220,7 +220,7 @@ my $backup = Brackup::Backup->new(
                                   );
 
 # Fix meta_dir (cwd will change, so we make $meta_dir default to it)
-$meta_dir ||= $target->{local_meta_dir};
+$meta_dir = $target->{local_meta_dir} unless defined $meta_dir;
 $meta_dir = Brackup::Util->fix_meta_dir( $meta_dir, $cwd, 1 );
 
 if (my ($stats, $backup_file) = eval { $backup->backup($meta_dir) }) {

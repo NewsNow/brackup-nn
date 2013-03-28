@@ -208,7 +208,7 @@ my $code = __PACKAGE__->can("CMD_$cmd_name") or
     usage("Unknown/unimplemented command.");
 
 # Get the meta_dir. meta_dir==undef continues to mean that it has not been specified
-$meta_dir ||= $target->{local_meta_dir};
+$meta_dir = $target->{local_meta_dir} unless defined $meta_dir;
 $meta_dir = Brackup::Util->fix_meta_dir( $meta_dir, getcwd(), 0 );
 
 # Process return code: 0 if method returns true; otherwise 1
