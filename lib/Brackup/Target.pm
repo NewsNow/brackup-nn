@@ -595,7 +595,7 @@ sub fsck {
 
         # On very verbose, print chunks to be deleted
         if( $opts->{verbose} && $opts->{verbose} >= 2 ){
-            warn "* Oprhaned chunks:\n";
+            warn "* Orphaned chunks:\n";
             foreach my $k (keys %$CHUNKS){
                 warn "    $k Size: $CHUNKS->{$k}\n";
             }
