@@ -208,14 +208,14 @@ sub load_target {
     my $class = "Brackup::Target::$type";
     eval "use $class; 1;" or die
         "Failed to load ${name}'s driver: $@\n";
-	 
+
     my $target;
     unless( eval {
         $target = $class->new($confsec, \%opts);
         1;
     }){
         if($@ =~ /^\[NO_DB\]/){
-            die "Could not find the inventory database. If this is the first time you run brackup, use --create-new-inv to create a new inventory.\n";
+            die "Could not find the inventory database. If this is the first time you run brackup, use --allow-new-inv to create a new inventory.\n";
         }
         die $@;
     }

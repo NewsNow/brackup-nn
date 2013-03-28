@@ -29,7 +29,7 @@ sub new {
         file  => $opts{file},
     }, $class;
 
-    unless( $opts{create_new} || -e $opts{file} ){
+    unless( $opts{allow_new} || -e $opts{file} ){
         die "[NO_DB] DB file not found - need to create new one?";
     }
 

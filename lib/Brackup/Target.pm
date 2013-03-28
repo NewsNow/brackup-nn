@@ -41,7 +41,7 @@ sub new {
                                         $confsec->value("inventory_db") ||
                                         "$ENV{HOME}/.brackup-target-$self->{name}.invdb",
                                         $confsec,
-                                        $opts->{create_new_inv});
+                                        $opts->{allow_new_inv});
 
     $self->{verbose} = $opts->{verbose};
     $self->{daemons} = $confsec->value("daemons") || '0';
