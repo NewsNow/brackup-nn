@@ -264,12 +264,11 @@ sub CMD_get_backup {
 sub CMD_get_backups {
     &CMD_list_backups(sub {
         my $si = shift;
-        my $size = $si->size;
+        # my $size = $si->size; -- can be compared to -s $name unless encryption is used
         my $name = $si->filename;
         $name = File::Spec->catfile( $meta_dir, $name ) if $meta_dir;
-        my $lsize = -s "$name";
-        if ($lsize && $lsize == $size) {
-            print " ... Found";
+        if (-e $name) {
+            print " Already exists";
             return;
         }
         print " ... ";
