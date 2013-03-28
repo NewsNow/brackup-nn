@@ -52,13 +52,16 @@ sub write_to_file {
 }
 
 sub decrypt_file_if_needed {
-    my ($filename, $no_gpg) = @_;
+    my ($filename, $opts) = @_;
+    ## opts
+    # no_gpg
+    # verbose
 
     my $meta = slurp($filename, decompress => 1);
     if ($meta and $meta =~ /[\x00-\x08]/) {  # silly is-binary heuristic
-        die "'$filename' is encrypted, aborting" if $no_gpg;
+        die "'$filename' is encrypted, aborting" if $opts->{no_gpg};
         my $new_file = decrypt_file($filename,no_batch => 1);
-        if (defined $new_file) {
+        if (defined $new_file && $opts->{verbose}) {
           warn "Decrypted ${filename} to ${new_file}.\n";
         }
         return $new_file;

@@ -325,7 +325,7 @@ sub get_and_decrypt_backup {
     $self->get_backup($name, $tempfile) || die "Couldn't load backup from target " . $name;
 
     # We CANNOT let this go out of scope as then the decrypted file will get deleted!
-    my $fobj = Brackup::DecryptedFile->new(filename => $tempfile, no_gpg => $opt->{no_gpg});
+    my $fobj = Brackup::DecryptedFile->new($tempfile, $opt);
 
     return ( ($fobj->name || $tempfile), $fobj );
 }
