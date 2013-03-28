@@ -46,7 +46,7 @@ sub new {
     $self->{verbose} = $opts->{verbose};
     $self->{daemons} = $confsec->value("daemons") || '0';
     $self->{gpg_daemons} = $confsec->value("gpg_daemons") || '5';
-    $self->{local_meta_dir}    = $conf->value('local_meta_dir');
+    $self->{local_meta_dir}    = $confsec->value('local_meta_dir');
 
     $self->{childgroup} = ref($class) ? ref($class) : $class;
     Brackup::ProcManager->set_maximum($self->{childgroup}, $self->{daemons});
@@ -595,7 +595,7 @@ sub fsck {
 
         # On very verbose, print chunks to be deleted
         if( $opts->{verbose} && $opts->{verbose} >= 2 ){
-            warn "* Orphaned chunks:\n";
+            warn "* Oprhaned chunks:\n";
             foreach my $k (keys %$CHUNKS){
                 warn "    $k Size: $CHUNKS->{$k}\n";
             }
