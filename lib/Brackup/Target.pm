@@ -253,9 +253,10 @@ sub prune {
     my (%backups, %backup_objs, @backups_to_delete) = ();
 
     # Separate backups by source
+    # {METANAME}
     foreach my $b ($self->backups) {
         my $backup_name = $b->filename;
-        if ($backup_name =~ /^(.+)-\d+(\.brackup)?$/) {
+        if ($backup_name =~ /^(.+)-\d+($|\.)/) {
             $backups{$1} ||= [];
             push @{ $backups{$1} }, $backup_name;
             $backup_objs{$1} ||= [];

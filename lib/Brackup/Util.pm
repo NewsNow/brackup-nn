@@ -48,7 +48,7 @@ sub setup_sig_handlers {
 
 sub brackup_destruct {
     if($mainpid == $$){
-        warn "Shutdown requested...";
+        warn "Shutdown requested...\n";
     }
     $SHUTDOWN_REQUESTED = 1;
 }

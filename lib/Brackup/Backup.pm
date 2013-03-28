@@ -79,9 +79,9 @@ sub backup {
     my $n_files_done = 0;   # int
     my @files;         # Brackup::File objs
 
-    my $meta_name = $self->{root}->publicname . "-" . $self->{target}->name . "-" . $self->backup_time_str . '.brackup';
-    my $backup_file = File::Spec->catfile($meta_dir || '', $meta_name);
-    $backup_file = noclobber_filename($backup_file); # just in case
+    my $backup_file; # filename of the metafile
+    my $error_to_note;
+    my $error_to_return;
 
     $self->debug("Discovering files in ", $root->path, "...\n");
     $self->report_progress(0, "Discovering files in " . $root->path . "...");
@@ -132,6 +132,10 @@ sub backup {
     # begin temp backup_file
     my ($metafh, $meta_filename);
     unless ($self->{dryrun}) {
+
+        # A temporary filename. We will finalise the name of the metafile later
+        $backup_file = File::Spec->catfile($meta_dir || '', $self->backup_time_str . '.brackup_tmp');
+
         ($metafh, $meta_filename) = tempfile(
                                              '.' . basename($backup_file) . 'XXXXX',
                                              DIR => dirname($backup_file),
@@ -192,7 +196,12 @@ sub backup {
     # Returns if we should continue
     my $start_file = sub {
         $end_file->();
-        return 0 if $Brackup::Util::SHUTDOWN_REQUESTED;
+
+        if($Brackup::Util::SHUTDOWN_REQUESTED){
+            $error_to_note = 'stopped'; # add this to the meta file name
+            return 0;
+        }
+
         $cur_file = shift;
         $cur_file_not_available = undef;
         @stored_chunks = ();
@@ -212,7 +221,7 @@ sub backup {
         my $eval_r = eval {
             # Return values:
             # 1 - OK
-            # 2 - call next (same behaviour)
+            # 2 - call next (skip any statements after the eval)
             # 3 - call last
 
             if ($rec->isa("Brackup::File")) { # symlinks, directories, etc.
@@ -346,15 +355,23 @@ sub backup {
         }
         else{ # Error occurred
             my $err = $@;
-            if($err =~ /^\[SKIP_FILE\] (.*)$/){
+            if($err =~ /^\[SKIP_FILE\] (.*)$/){ # Thrown when we fail to open a file - it might have been deleted in the meantime
+
                 warn "Skipped storing the current chunk because '$1'\n";
                 $cur_file_not_available = 1; # This prevents end_file from adding the file to be flushed to the metafile
-            }else{
-                die $err; # re-throw error
+
+            }else{ # A serious error occurred
+
+                warn "*** ERROR occurred: '$err' Attempting to flush metafile...\n";
+                $error_to_note = 'with-error'; # add this to the meta file name
+                $error_to_return = $err;
+                $cur_file_not_available = 1; # This prevents end_file from adding the file to be flushed to the metafile
+                last;
+
             }
         }
 
-    }
+    } # end while
 
     # If using daemonised storage, ensure all chunks are stored and added to the inventory
     $target->wait_for_kids();
@@ -372,7 +389,17 @@ sub backup {
     $stats->set(files_uploaded_size  => sprintf('%0.01f', $n_kb_up / 1024), label => 'Total File Size Uploaded', units => 'MB');
 
     unless ($self->{dryrun}) {
+
         close $metafh or die "Close on metafile '$backup_file' failed: $!";
+
+        # Finalising the name of the meta-file
+        # {METANAME}
+        my $meta_name = $self->{root}->publicname . "-" . $self->{target}->name . "-" . $self->backup_time_str #
+            . ( $error_to_note ? '.' . $error_to_note : '' )  #
+            . '.brackup';
+        $backup_file = File::Spec->catfile($meta_dir || '', $meta_name);
+        $backup_file = noclobber_filename($backup_file); # just in case
+
         rename $meta_filename, $backup_file
             or die "Failed to rename temporary backup_file: $!\n";
 
@@ -411,7 +438,7 @@ sub backup {
             close $store_fh or die "Close on encrypted metafile failed: $!";
             unlink $store_filename;
         }
-         
+
         $target->cleanup();
     }
     $self->report_progress(100, "Backup complete.");
@@ -420,7 +447,7 @@ sub backup {
         Brackup::Webhook->new(url => $url, root => $root, target => $target, stats => $stats)->fire;
     }
 
-    return ($stats, $backup_file);
+    return ($stats, $backup_file, $error_to_return);
 }
 
 sub default_file_mode {
