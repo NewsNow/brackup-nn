@@ -46,6 +46,8 @@ sub new {
     $self->{verbose} = $opts->{verbose};
     $self->{daemons} = $confsec->value("daemons") || '0';
     $self->{gpg_daemons} = $confsec->value("gpg_daemons") || '5';
+    $self->{local_meta_dir}    = $conf->value('local_meta_dir');
+
     $self->{childgroup} = ref($class) ? ref($class) : $class;
     Brackup::ProcManager->set_maximum($self->{childgroup}, $self->{daemons});
 
@@ -770,6 +772,21 @@ Specifies the maximum number of child processes used to store chunks in parallel
 =item B<gpg_daemons>
 
 Specifies the maximum number of child processes used to encrypt chunks in parallel.
+
+=item B<local_meta_dir>
+
+Should be a directory; optional.
+If specified, I<brackup> saves the metafile in this directory,
+and I<brackup-target fsck> will attempt to load the metafiles from this directory.
+(It falls back to loading the metafiles from the target in case of failure,
+and the list of metafiles (i.e. backups) is still loaded from the target.)
+This is useful if the metafiles on the target are encrypted, as if all metafiles
+are available locally, then these tasks can run without having to enter
+a passphrase for GPG for decryption.
+Also, I<brackup-target prune> and I<delete_backup> deletes the local metafile as well,
+and I<get_backup> and I<get_backups> write the backup file to this directory.
+
+See also the --meta-dir command-line option of I<brackup> and I<brackup-target>.
 
 =back
 

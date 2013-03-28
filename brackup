@@ -45,6 +45,7 @@ for more.
 
 Optional.  Defaults to the current directory.
 The "metafile" index is saved here that you'll need to do a restore.
+See also the I<local_meta_dir> target config entry, which is overridden by this argument.
 
 =item --config=FILE
 
@@ -218,7 +219,8 @@ my $backup = Brackup::Backup->new(
                                   arguments      => $arguments,
                                   );
 
-# Fix meta_dir (cwd will change!)
+# Fix meta_dir (cwd will change, so we make $meta_dir default to it)
+$meta_dir ||= $target->{local_meta_dir};
 $meta_dir = Brackup::Util->fix_meta_dir( $meta_dir, $cwd, 1 );
 
 if (my ($stats, $backup_file) = eval { $backup->backup($meta_dir) }) {
