@@ -50,6 +50,15 @@ sub path_value {
     return $val;
 }
 
+sub file_value_or_empty {
+    my ($self, $key) = @_;
+    return $self->value($key) unless $self->value($key);
+    my $val = $self->value($key) || "";
+    die "Path '$key' of '$val' isn't a valid absolute file path\n"
+        unless $val && -f $val && File::Spec->file_name_is_absolute($val);
+    return $val;
+}
+
 sub byte_value {
     my ($self, $key) = @_;
     my $val = $self->value($key);
