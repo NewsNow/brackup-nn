@@ -18,7 +18,7 @@ package Brackup::Target::Amazon;
 use strict;
 use warnings;
 use base 'Brackup::Target';
-use Net::Amazon::S3 0.42;
+use Net::Amazon::S3 0.59;
 use DateTime::Format::ISO8601;
 use POSIX qw(_exit);
 use Brackup::Target::Amazon::S3;
@@ -166,9 +166,12 @@ sub _store_chunk {
     my ($self, $chunk) = @_;
     my $dig = $chunk->backup_digest;
     my $fh = $chunk->chunkref;
-    my $chunkref = do { local $/; <$fh> };
+    # my $chunkref = do { local $/; <$fh> };
 
-    return $self->{s3c}->put( bucket => $self->{chunk_bucket}, key => $self->chunkpath($dig), value => $chunkref,
+    return $self->{s3c}->put(
+         bucket => $self->{chunk_bucket},
+         key => $self->chunkpath($dig),
+         value => $fh,
          headers => { content_type  => 'x-danga/brackup-chunk', 'x-amz-server-side-encryption' => 'AES256' }
      );
 }
@@ -214,11 +217,12 @@ sub store_backup_meta {
 
     return 1 if
       eval {
-			return $self->{s3c}->put( bucket => $self->{backup_bucket}, key => $self->backuppath($name), 
-				value => Brackup::Util::slurp($meta->{filename}),
-				headers => { content_type => 'x-danga/brackup-meta' }
-			);
-		};
+            $fh = IO::File->new($meta->{filename},'r') unless $fh;
+            return $self->{s3c}->put( bucket => $self->{backup_bucket}, key => $self->backuppath($name), 
+                value => $fh,
+                headers => { content_type => 'x-danga/brackup-meta' }
+            );
+        };
 
     die "Failed to store backup meta file $meta->{filename} to " . $self->backuppath($name) . " in $self->{backup_bucket}" . ($@ && " with exception $@") . "\n";
 }
