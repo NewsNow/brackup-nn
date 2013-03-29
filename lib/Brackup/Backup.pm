@@ -257,7 +257,7 @@ sub backup {
                 $pchunk->forget_chunkref;
                 ## ! $schunk in a composite chunk returns the digest of the composite chunk
                 push @stored_chunks, $schunk;
-                $self->debug_more('  * chunk is already being stored by another daemon', $pchunk->as_string, "\n");
+                $self->debug_more('  * chunk is already being stored by another daemon: ', $pchunk->as_string, "\n");
                 return 2;
             }
 
@@ -414,6 +414,7 @@ sub backup {
          
         $target->cleanup();
     }
+	
     $self->report_progress(100, "Backup complete.");
 
     if (my $url = $root->webhook_url) {
