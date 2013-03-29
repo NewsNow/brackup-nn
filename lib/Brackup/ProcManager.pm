@@ -158,11 +158,22 @@ sub collect_zombies {
 sub assert_all_reaped {
     my $class = shift;
 
+    my @groups;
+
     foreach my $group (keys %CHILD_GROUP_COUNT){
         if( $CHILD_GROUP_COUNT{$group} ){
-            die "ASSERT: Some children in group '$group' haven't been reaped\n";
+            warn "ASSERT: Warning: Some children in group '$group' haven't been reaped. Waiting...\n";
+            push @groups, $group;
+
+            # Note: we are not calling the childexit code here.
+            while($CHILD_GROUP_COUNT{$group} > 0){
+                waitpid(-1, 0);
+                $CHILD_GROUP_COUNT{$group}--;
+            }
         }
     }
+
+    die "ASSERT: Some children in group(s) '" . join(',', @groups) . "' haven't been reaped\n" if scalar(@groups);
 }
 
 # Calls &$callback( $child_hashref ) for each child in $group.

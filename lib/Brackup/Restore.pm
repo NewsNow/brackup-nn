@@ -51,7 +51,7 @@ sub new {
     die "Destination directory doesn't exist" unless $self->{to} && -d $self->{to};
     croak("Unknown options: " . join(', ', keys %opts)) if %opts;
 
-    $self->{metafile} = Brackup::DecryptedFile->new(filename => $self->{filename});
+    $self->{metafile} = Brackup::DecryptedFile->new($self->{filename});
 
     # We start with 1 and only use more if one download/decrypt is successful
     Brackup::ProcManager->set_maximum('restore', 1) if $self->{daemons};
@@ -86,6 +86,8 @@ sub restore {
     }
     # If no config section, use an empty one up with no keys to simplify Target handling
     $confsec ||= Brackup::ConfigSection->new('fake');
+
+    $confsec->parse_globals_for_target();
 
     eval "use $driver_class; 1;" or die
         "Failed to load driver ($driver_class) to restore from: $@\n";

@@ -28,6 +28,7 @@ use File::Spec;
 use Carp;
 use Fcntl qw(O_RDONLY);
 use Digest::SHA1;
+use Brackup::Config;
 
 our $mainpid = $$;
 our $SHUTDOWN_REQUESTED = 0;
@@ -48,7 +49,7 @@ sub setup_sig_handlers {
 
 sub brackup_destruct {
     if($mainpid == $$){
-        warn "Shutdown requested...";
+        warn "Shutdown requested...\n";
     }
     $SHUTDOWN_REQUESTED = 1;
 }
@@ -57,7 +58,16 @@ sub _get_temp_directory {
     # Create temporary directory if we need one. By default, all temporary
     # files will be placed in it.
     unless (defined($_temp_directory)) {
-        $_temp_directory = File::Temp::tempdir(CLEANUP => $ENV{BRACKUP_TEST_NOCLEANUP} ? 0 : 1);
+        my %tmpdiropts = (
+            CLEANUP => $ENV{BRACKUP_TEST_NOCLEANUP} ? 0 : 1
+        );
+
+        my $local_tmp = $Brackup::Config::CONFIG{'target'}->{'local_tmp'};
+        if($local_tmp){
+            $tmpdiropts{DIR} = $local_tmp;
+        }
+
+        $_temp_directory = File::Temp::tempdir(%tmpdiropts);
     }
 
     return $_temp_directory;

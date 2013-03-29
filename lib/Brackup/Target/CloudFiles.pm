@@ -53,18 +53,18 @@ sub _common_cf_init {
     $self->{backupContainerName} = $self->{username} . "-backups";
 
     $self->{cf} = Net::Mosso::CloudFiles->new(
-		user => $self->{username},
-		key => $self->{apiKey}
-	);
+        user => $self->{username},
+        key => $self->{apiKey}
+    );
 
-	#createContainer makes the object and returns it, or returns it
-	#if it already exists
-	$self->{chunkContainer} =
-		$self->{cf}->create_container(name => $self->{chunkContainerName})
-			or die "Failed to get chunk container";
-	$self->{backupContainer} =
-		$self->{cf}->create_container(name => $self->{backupContainerName})
-			or die "Failed to get backup container";
+    #createContainer makes the object and returns it, or returns it
+    #if it already exists
+    $self->{chunkContainer} =
+        $self->{cf}->create_container(name => $self->{chunkContainerName})
+        or die "Failed to get chunk container";
+    $self->{backupContainer} =
+        $self->{cf}->create_container(name => $self->{backupContainerName})
+        or die "Failed to get backup container";
 
 }
 
@@ -81,12 +81,12 @@ sub new_from_backup_header {
 
     my $username  = ($ENV{'CF_USERNAME'} ||
         $confsec->value('cf_username') ||
-		_prompt("Your CloudFiles username: "))
+        _prompt("Your CloudFiles username: "))
         or die "Need your Cloud Files username.\n";
 
     my $apiKey = ($ENV{'CF_API_KEY'} ||
         $confsec->value('cf_api_key') ||
-		_prompt("Your CloudFiles api key: "))
+        _prompt("Your CloudFiles api key: "))
         or die "Need your CloudFiles api key.\n";
 
     my $self = bless {}, $class;
@@ -179,16 +179,16 @@ sub get_backup {
     my $self = shift;
     my ($name, $output_file) = @_;
 
-	my $val = $self->{backupContainer}->object(name => $name)->get
-		or return 0;
+    my $val = $self->{backupContainer}->object(name => $name)->get
+        or return 0;
 
-	$output_file ||= "$name.brackup";
+    $output_file ||= "$name.brackup";
     open(my $out, ">$output_file") or die "Failed to open $output_file: $!\n";
 
     my $outv = syswrite($out, $val);
 
     die "download/write error" unless
-		$outv == do { use bytes; length $val };
+        $outv == do { use bytes; length $val };
     close $out;
 
     return 1;

@@ -23,8 +23,8 @@ sub new {
     my ($class, $root, $rconf) = @_;
     my $self = bless {}, $class;
 
-    my $file = $rconf->value('digestdb_file') ||
-      File::Spec->catfile($root->path, default_filename());
+    my $file = $rconf->file_value_or_empty('digestdb_file') ||
+      File::Spec->catfile($root->path, $class->default_filename());
     my $type = $rconf->value('digestdb_type') || 'SQLite2';
 
     my $dict_class = "Brackup::Dict::$type";
@@ -32,7 +32,7 @@ sub new {
     $self->{dict} = $dict_class->new(
         table => "digest_cache",
         file => $file,
-        create_new => 1
+        allow_new => 1
     );
 
     return $self;

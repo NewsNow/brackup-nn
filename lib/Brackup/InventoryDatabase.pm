@@ -21,14 +21,14 @@ use warnings;
 use Carp qw(croak);
 
 sub new {
-    my ($class, $file, $tconf, $create_new) = @_;
+    my ($class, $file, $tconf, $allow_new) = @_;
     my $self = bless {}, $class;
 
     my $type = $tconf->value('inventorydb_type') || 'SQLite2';
 
     my $dict_class = "Brackup::Dict::$type";
     eval "require $dict_class";
-    $self->{dict} = $dict_class->new(table => "target_inv", file => $file, create_new => $create_new);
+    $self->{dict} = $dict_class->new(table => "target_inv", file => $file, allow_new => $allow_new);
 
     return $self;
 }

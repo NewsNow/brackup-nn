@@ -22,22 +22,17 @@ use Carp qw(croak);
 use Brackup::Decrypt;
 
 sub new {
-  my ($class, %opts) = @_;
-  ## opts
-  # original_file
-  # no_gpg -- abort instead of calling GPG
+  my ($class, $filename, $opts) = @_;
 
   my $self = bless {}, $class;
 
-  $self->{original_file} = delete $opts{filename};    # filename we're restoring from
-  $self->{no_gpg} = delete $opts{no_gpg};
+  $self->{original_file} = $filename;    # filename we're restoring from
 
   die "File $self->{original_file} does not exist"
         unless $self->{original_file} && -f $self->{original_file};
-  croak("Unknown options: " . join(', ', keys %opts)) if %opts;
 
   # decrypted_file might be undef if no decryption was needed.
-  $self->{decrypted_file} = Brackup::Decrypt::decrypt_file_if_needed($self->{original_file}, $self->{no_gpg});
+  $self->{decrypted_file} = Brackup::Decrypt::decrypt_file_if_needed($self->{original_file}, $opts);
 
   return $self;
 }
