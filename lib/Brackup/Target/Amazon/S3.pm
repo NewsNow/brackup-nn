@@ -369,4 +369,30 @@ sub abort_multipart_uploads {
     }
 }
 
+sub delete_multi {
+    my $self    = shift;
+    my $args = (ref($_[0]) eq 'HASH') ? $_[0] : {@_};
+
+    my $http_request = Net::Amazon::S3::Request::DeleteMultiObject->new(
+         s3      => $self->client->s3,
+           bucket => $$args{bucket},
+           keys => $$args{keys}
+     )->http_request;
+    
+    my $xpc = $self->client->_send_request_xpc($http_request);
+    
+    return $$args{keys} unless $xpc->findnodes('//s3:DeleteResult');
+    
+    my $Keys;
+    my @errors = $xpc->findnodes('//s3:Key');
+    
+    foreach my $object (@errors) {
+         my $key = $object->to_literal;
+         print "delete_multi failed to delete $$args{bucket}/$key\n";
+         push(@$Keys, $key);
+    }
+    
+    return $Keys;
+}
+
 1;
