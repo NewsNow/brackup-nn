@@ -142,6 +142,19 @@ sub delete_chunk {
     die "ERROR: delete_chunk not implemented in sub-class $self";
 }
 
+# returns true on success, or returns false or dies otherwise.
+# in absence of sub-class override, simply wraps delete_chunk
+sub delete_chunk_multi {
+    my ($self, $chunk) = @_;
+	 $self->delete_chunk($chunk);
+}
+
+# returns true on success, or returns false or dies otherwise.
+# in absence of sub-class override, does nothing.
+sub delete_chunks_multi {
+	 return 1;
+}
+
 # returns a list of names of all chunks
 sub chunks {
     my ($self) = @_;
@@ -622,19 +635,22 @@ sub fsck {
             $v =~ s/ .*$//;         # strip value back to hash
             if(exists $CHUNKS->{$v}){
                 $inventory_db->delete($k);
-                $self->delete_chunk($v);
+                $self->delete_chunk_multi($v);
                 delete $CHUNKS->{$v};
             }
         }
 
         # (2) delete chunks not found in the inventory
         foreach my $v (keys %$CHUNKS){
-            $self->delete_chunk($v);
+            $self->delete_chunk_multi($v);
         }
 
         last;
     } # end while(1)
 
+    # Execute any queued deletes.
+    $self->delete_chunks_multi();
+    
     # Print summary
     my %explanation = (
         '_meta_dir'     => "  * Wherever possible, locally stored metafiles have been used.\n",
