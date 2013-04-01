@@ -280,13 +280,13 @@ sub complete_multipart_upload {
 
 sub _put {
     my $self = shift;
-     my $class = shift;
+    my $class = shift;
     my $args = (ref($_[0]) eq 'HASH') ? $_[0] : {@_};
     
     my $md5_hex = $self->_set_headers($args);
 
     my $n_fails = 0;
-     my $retries = 12;
+    my $retries = 12;
     
     while ($n_fails < $retries) {
          my $http_response =
@@ -359,13 +359,14 @@ sub abort_multipart_uploads {
     my $xpc = $self->client->_send_request_xpc($http_request);
     my @uploads = $xpc->findnodes('//s3:Upload');
     
-     foreach my $upload (@uploads) {
-         my $upload_id = $upload->getChildrenByTagName('UploadId');
-         my $key = $upload->getChildrenByTagName('Key');
-         print STDERR "$upload_id $key\n";
+    foreach my $upload (@uploads) {
+        my $upload_id = $upload->getChildrenByTagName('UploadId');
+        my $key = $upload->getChildrenByTagName('Key');
+        print "Found incomplete multipart upload $upload_id for key $key, aborting...";
          
-         $self->abort_multipart_upload(bucket => $$args{bucket}, key => $key, upload_id => $upload_id);
-     }
+        $self->abort_multipart_upload(bucket => $$args{bucket}, key => $key, upload_id => $upload_id);
+        print " done.\n";
+    }
 }
 
 1;
