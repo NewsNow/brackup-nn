@@ -182,6 +182,34 @@ sub delete_chunk {
     return $bucket->delete_key($self->chunkpath($dig));
 }
 
+sub delete_chunk_multi {
+    my ($self, $dig) = @_;
+     push(@{$self->{_delete_chunk_multi}}, $self->chunkpath($dig));
+
+     $self->delete_chunks_multi() if @{$self->{_delete_chunk_multi}} == 1000; # Amazon S3 multi-object delete limit.
+}
+
+sub delete_chunks_multi {
+    my $self = shift;
+    
+    # If called at end of program to execute outstanding deletes, skip
+    # if none were actually scheduled.
+    return 1 unless exists $self->{_delete_chunk_multi} && scalar(@{$self->{_delete_chunk_multi}});
+    
+    printf "delete_chunk issuing delete_multi for %d chunks...", scalar(@{$self->{_delete_chunk_multi}});
+    my $failed_keys = $self->{s3c}->delete_multi( bucket => $self->{chunk_bucket}, keys => $self->{_delete_chunk_multi} );
+
+    if($failed_keys) {
+        printf " but %d deletes failed.\n", scalar(@$failed_keys);
+        $self->{_delete_chunk_multi} = $failed_keys;
+        return 0;
+    }
+
+    print " ok.\n";
+    delete $self->{_delete_chunk_multi};
+    return 1;
+}
+
 # returns a list of names of all chunks
 sub chunks {
     my $self = shift;
