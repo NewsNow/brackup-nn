@@ -268,13 +268,14 @@ sub complete_multipart_upload {
           part_numbers => $$args{part_numbers},
       )->http_request;
     
-    my $http_response = $self->client->_send_request($http_request);
+    # TESTME: the line below and the return string shouldn't have been needed!
+    # my $http_response = $self->client->_send_request($http_request);
 
     my $xpc = $self->client->_send_request_xpc($http_request);
     my $etag = $xpc->findvalue('//s3:ETag');
     die "Couldn't get ETag from complete_multipart_upload response XML" unless $etag;
     
-    return $http_response;
+    return 1; # $http_response;
 }
 
 sub _put {
