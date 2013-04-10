@@ -132,6 +132,9 @@ sub wait_for_extra_children {
     my $class = shift;
     my $group = shift;
 
+    # Do a non-blocking wait, just in case
+    $class->wait_for_child(0);
+
     if($CHILD_GROUP_MAX{$group}){
         while(($CHILD_GROUP_COUNT{$group} || 0) >= $CHILD_GROUP_MAX{$group}){
             $class->wait_for_child(1);
