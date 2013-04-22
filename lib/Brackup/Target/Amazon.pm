@@ -251,7 +251,7 @@ sub store_backup_meta {
             $fh = IO::File->new($meta->{filename},'r') unless $fh;
             return $self->{s3c}->put( bucket => $self->{backup_bucket}, key => $self->backuppath($name), 
                 value => $fh,
-                headers => { content_type => 'x-danga/brackup-meta' }
+                headers => { content_type => 'x-danga/brackup-meta', 'x-amz-server-side-encryption' => 'AES256' }
             );
         };
 
