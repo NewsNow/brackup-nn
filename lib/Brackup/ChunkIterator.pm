@@ -20,9 +20,9 @@ use warnings;
 use Carp qw(croak);
 
 sub new {
-    my ($class, @files) = @_;
+    my ($class, $files) = @_;
     return bless {
-        filelist => \@files,
+        filelist => $files,
         chunkmag => [],
     }, $class;
 }
