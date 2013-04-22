@@ -146,7 +146,7 @@ sub accept {
         pop(@parentregexps);
 
         # Ensure that the main regexp ends in either / or $
-        $fileregexp = '^' . $fileregexp . ($trailingslash ? '/' : '$');
+        $fileregexp = '^' . $fileregexp . ($trailingslash ? '/' : '(/|$)');
 
         push @{ $self->{accept} }, [ $cond eq '=' ? 1 : 0, $fileregexp, \@parentregexps ];
     }
@@ -389,9 +389,9 @@ In the pattern that follows '==' or '!=', no character except '*' is special.
 or one or more characters except a slash where zero characters would lead to a double slash
 (at the beginning or end of the pattern or between two slashes).
 
-A trailing slash on a pattern implies accepting everything under that directory.
-For example, '== home/user/' includes 'home/user/file', but '== home/user' only
-includes the file 'home/user'.
+A pattern with a trailing slash only matches a directory.
+Otherwise, a pattern will match either a file or a directory.
+If what is matched is a directory, everything under it is also included.
 
 Including a file or directory in the backup set entails including all its parent directories.
 
