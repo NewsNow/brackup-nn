@@ -148,7 +148,11 @@ sub accept {
         # Ensure that the main regexp ends in either / or $
         $fileregexp = '^' . $fileregexp . ($trailingslash ? '/' : '(/|$)');
 
-        push @{ $self->{accept} }, [ $cond eq '=' ? 1 : 0, $fileregexp, \@parentregexps ];
+        push @{ $self->{accept} }, {
+            'type' => $cond eq '=' ? 1 : 0, # 1=include 0=exclude
+            'filepattern' => $fileregexp,
+            'parents' => \@parentregexps
+        };
     }
 }
 
@@ -166,6 +170,15 @@ sub foreach_file {
     chdir $self->{dir} or die "Failed to chdir to $self->{dir}";
 
     my %statcache; # file -> statobj
+
+    # If using 'accept' configuration lines, check if there are any positive (include) rules
+    my $accept_default_result = 1;
+    foreach my $rule (@{ $self->{accept} }) {
+        if($rule->{'type'}){
+            $accept_default_result = 0;
+            last;
+        }
+    }
 
     find({
         no_chdir => 1,
@@ -212,11 +225,11 @@ sub foreach_file {
 
                     my $dbg = "$npath:\n";
 
-                    my $rule_outcome = 0;
+                    my $rule_outcome = $accept_default_result;
                     foreach my $rule (@{ $self->{accept} }) {
-                        my $cond = $rule->[0];
-                        my $filepattern = $rule->[1];
-                        my $parentpatterns = $rule->[2];
+                        my $cond = $rule->{'type'};
+                        my $filepattern = $rule->{'filepattern'};
+                        my $parentpatterns = $rule->{'parents'};
                         $dbg .= "  (file) " . ($cond ? '=~' : '!~') . " $filepattern\n";
                         if($npath =~ /$filepattern/) {
                             $dbg .= "    (MATCH:F)\n";
@@ -370,28 +383,28 @@ The directory to backup (recursively)
 
 =item B<accept>
 
-Use one or more 'accept' lines to control what files to include in the backup set.
+Use one or more 'accept' rules to control what files to include in the backup set.
 
   path = /home/
   accept = == user/src/*/*.pm
   accept = != user/src/oldproject
 
-Depending on whether 'accept = ' is followed by '==' or '!=', the accept line
+Depending on whether 'accept = ' is followed by '==' or '!=', the accept rule
 includes or excludes the files or directories it matches.
-Accept lines are checked in the order they appear, and the last line that
+Accept rules are checked in the order they appear, and the last rule that
 matches the current file or directory determines whether it is included in the backup set.
-If one accept line is present in the configuration, then only those files and directories
-are included which are accepted during this process; that is, one needs to have at least
-one '==' line.
+
+The default decision is to exclude the file or directory if there is at least one
+inclusive ('==') accept rule present. Otherwise, it is included by default.
 
 In the pattern that follows '==' or '!=', no character except '*' is special.
 '*' stands for zero or more characters except a slash,
 or one or more characters except a slash where zero characters would lead to a double slash
 (at the beginning or end of the pattern or between two slashes).
 
-A pattern with a trailing slash only matches a directory.
-Otherwise, a pattern will match either a file or a directory.
-If what is matched is a directory, everything under it is also included.
+A pattern with a trailing slash only matches a directory;
+otherwise, a pattern will match either a file or a directory.
+Also, if what is matched is a directory, everything under it is also included.
 
 Including a file or directory in the backup set entails including all its parent directories.
 
