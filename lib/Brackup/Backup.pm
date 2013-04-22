@@ -118,8 +118,8 @@ sub backup {
     }
 
 
-    my $chunk_iterator = Brackup::ChunkIterator->new(@files);
-    undef @files;
+    my $chunk_iterator = Brackup::ChunkIterator->new(\@files);
+    # undef @files; # DO NOT delete @files as ChunkIterator uses it!
     $stats->timestamp('Chunk Iterator');
 
     my $gpg_iter;
@@ -441,7 +441,7 @@ sub backup {
 
         $target->cleanup();
     }
-	
+
     $self->report_progress(100, "Backup complete.");
 
     if (my $url = $root->webhook_url) {
