@@ -73,21 +73,21 @@ sub _md5 {
     my $self = shift;
     my $args = shift;
     
-     # Scalar
-     return md5( $$args{value} ) unless ref($$args{value});
+    # Scalar
+    return md5( $$args{value} ) unless ref($$args{value});
     
-     # Scalar reference
+    # Scalar reference
     return md5( ${$$args{value}} ) if ref($$args{value}) eq 'SCALAR';
     
-     # Assume filehandle
-     my $md5 = Digest::MD5->new();
-     $$args{value}->seek(0,0);
-     my $fh = $$args{value};
-     while(<$fh>) {
-         $md5->add($_);
-     }
-     $$args{value}->seek(0,0);
-     return $md5->digest;
+    # Assume filehandle
+    my $md5 = Digest::MD5->new();
+    $$args{value}->seek(0,0);
+    my $fh = $$args{value};
+    while(<$fh>) {
+        $md5->add($_);
+    }
+    $$args{value}->seek(0,0);
+    return $md5->digest;
 }
 
 sub _length {

@@ -166,7 +166,10 @@ sub _store_chunk {
     my ($self, $chunk) = @_;
     my $dig = $chunk->backup_digest;
     my $fh = $chunk->chunkref;
-    # my $chunkref = do { local $/; <$fh> };
+   
+    # Enable passing entire chunk by scalar ref, as this seems to result
+    # in modest performance improvement for chunksizes <= 10Mb
+    my $chunkref = do { local $/; <$fh> }; $fh = \$chunkref;
 
     return $self->{s3c}->put(
          bucket => $self->{chunk_bucket},
@@ -248,7 +251,7 @@ sub store_backup_meta {
             $fh = IO::File->new($meta->{filename},'r') unless $fh;
             return $self->{s3c}->put( bucket => $self->{backup_bucket}, key => $self->backuppath($name), 
                 value => $fh,
-                headers => { content_type => 'x-danga/brackup-meta' }
+                headers => { content_type => 'x-danga/brackup-meta', 'x-amz-server-side-encryption' => 'AES256' }
             );
         };
 
