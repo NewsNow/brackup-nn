@@ -108,22 +108,48 @@ sub ignore {
 sub accept {
     my ($self, $pattern) = @_;
 
-     if($pattern =~ s/^([!=])(?:=?)\s*//) {
-         my $cond = $1;
-         $pattern =~ s{^/}{}s;
-         my $pattern_re = quotemeta($pattern);
+    $pattern =~ s/(^\s+)|(\s+$)//g;
 
-         # 1. ^\*     => [^/]+
-         # 2. /\*     => /[^/]+
-         # 3. /\w+\*  => /\w+[^/]*
+    if($pattern =~ s/^([!=])(?:=?)\s*//) {
+        my $cond = $1;
 
-         $pattern_re =~ s!(^|/)\\\*!$1\[^/\]+!sg;
-         $pattern_re =~ s!(/?[^/\*]+)\\\*!$1\[^/\]*!sg;
+        # Do not allow double slashes
+        die "'accept' contains '//'" if $pattern =~ m{//};
 
-         $pattern_re = '^' . $pattern_re;
+        $pattern =~ s{^/}{}; # Remove / from the beginning of rules
 
-         push @{ $self->{accept} }, [ $cond eq '=' ? 1 : 0, $pattern_re, $pattern ];
-     }
+        # Create a list of regexps to test for all parents of the current path
+        my @parentregexps;
+        my $fileregexp;
+
+        # split() does not honor trailing separators, so check and remove trailing slashes
+        my $trailingslash;
+        $trailingslash = ($pattern =~ m{/$});
+        $pattern =~ s{/$}{};
+
+        foreach my $patternpart (split(m{/}, $pattern)){
+            $fileregexp .= '/' if $fileregexp;
+            $fileregexp .= quotemeta($patternpart);
+
+            # Replace '*' in the pattern
+            my $plus = '[^/]+';
+            $fileregexp =~ s{^\\\*$}{$plus};
+            $fileregexp =~ s{^\\\*/}{$plus/};
+            $fileregexp =~ s{/\\\*$}{/$plus};
+            $fileregexp =~ s{/\\\*/}{/$plus/}g;
+            $fileregexp =~ s{\\\*}{[^/]*}g;
+
+            push @parentregexps, '^' . $fileregexp . '/$';
+        }
+
+        # We don't need the last parent regexp
+        pop(@parentregexps);
+
+        # Ensure that the main regexp ends in either / or $
+        $fileregexp = '^' . $fileregexp . ($trailingslash ? '/' : '$');
+
+        push @{ $self->{accept} }, [ $cond eq '=' ? 1 : 0, $fileregexp, \@parentregexps ];
+    }
 }
 
 sub path {
@@ -181,36 +207,35 @@ sub foreach_file {
                 }
 
                 if(@{ $self->{accept} }) {
-                         my $npath = $path;
-                         $npath .= '/' if $is_dir;
+                    my $npath = $path;
+                    $npath .= '/' if $is_dir;
 
-                         my $dbg = "$npath:\n";
+                    my $dbg = "$npath:\n";
 
-                         my $rule_outcome = 0;
-                         foreach my $rule (@{ $self->{accept} }) {
-                             my $cond = $rule->[0];
-                             my $pattern_re = $rule->[1];
-                             my $pattern = $rule->[2];
-                             $dbg .= "   " . ($cond ? '=~' : '!~') . " $pattern_re => ";
-                             if($npath =~ /$pattern_re/) {
-                                 $dbg .= "(MATCH_RE) ";
-                                 $rule_outcome = $cond;
-                             }
-                             elsif(defined($pattern) && $is_dir && $pattern =~ /^\Q$npath\E/) {
-                                 $dbg .= "(MATCH) ";
-                                 $rule_outcome = $cond;
-                             }
-                             else {
-                                 $dbg .= "(no match) ";
-                                 ;
-                             }
-                             $dbg .= "=> outcome:" . ($rule_outcome ? 'accept' : 'ignore') . "\n";
+                    my $rule_outcome = 0;
+                    foreach my $rule (@{ $self->{accept} }) {
+                        my $cond = $rule->[0];
+                        my $filepattern = $rule->[1];
+                        my $parentpatterns = $rule->[2];
+                        $dbg .= "  (file) " . ($cond ? '=~' : '!~') . " $filepattern\n";
+                        if($npath =~ /$filepattern/) {
+                            $dbg .= "    (MATCH:F)\n";
+                            $rule_outcome = $cond;
+                        }
+                        elsif($cond && $is_dir) { # only if accept line is == (accepting) and npath is dir
+                            foreach my $parentpattern (@$parentpatterns){
+                                $dbg .= "  (parent) " . $parentpattern . "\n";
+                                if($npath =~ /$parentpattern/) {
+                                    $dbg .= "    (MATCH:P)\n";
+                                    $rule_outcome = $cond;
+                                }
+                            }
+                        }
+                    }
+                    # print STDERR ($rule_outcome ? 'Y ' : 'N ' ) . $dbg;
 
-                             # print $dbg;
-                         }
-
-                         next DENTRY unless $rule_outcome;
-                     }
+                    next DENTRY unless $rule_outcome;
+                }
 
                 $statcache{$path} = $statobj;
                 push @good_dentries, $dentry;
@@ -342,6 +367,33 @@ In your ~/.brackup.conf file:
 =item B<path>
 
 The directory to backup (recursively)
+
+=item B<accept>
+
+Use one or more 'accept' lines to control what files to include in the backup set.
+
+  path = /home/
+  accept = == user/src/*/*.pm
+  accept = != user/src/oldproject
+
+Depending on whether 'accept = ' is followed by '==' or '!=', the accept line
+includes or excludes the files or directories it matches.
+Accept lines are checked in the order they appear, and the last line that
+matches the current file or directory determines whether it is included in the backup set.
+If one accept line is present in the configuration, then only those files and directories
+are included which are accepted during this process; that is, one needs to have at least
+one '==' line.
+
+In the pattern that follows '==' or '!=', no character except '*' is special.
+'*' stands for zero or more characters except a slash,
+or one or more characters except a slash where zero characters would lead to a double slash
+(at the beginning or end of the pattern or between two slashes).
+
+A trailing slash on a pattern implies accepting everything under that directory.
+For example, '== home/user/' includes 'home/user/file', but '== home/user' only
+includes the file 'home/user'.
+
+Including a file or directory in the backup set entails including all its parent directories.
 
 =item B<gpg_recipient>
 
