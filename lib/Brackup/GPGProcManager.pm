@@ -74,6 +74,7 @@ sub child_handler {
         my $proc = $self->{procs_running}{$pid};
         delete $self->{procs_running}{$pid} or die 'ASSERT';
         $proc->note_stopped;
+        # WARNING size_on_disk might report less here than the real value
         $self->{uncollected_bytes} += $proc->size_on_disk;
         return $pid; # returned by wait_for_child
 
@@ -106,6 +107,7 @@ sub enc_chunkref_of {
     }
 
     $self->_proc_summary_dump;
+    delete $self->{procs}{$pchunk};
     my ($cref, $enc_length) = $self->get_proc_chunkref($proc);
     $self->_proc_summary_dump;
     $self->start_some_processes;
@@ -144,6 +146,7 @@ sub next_chunk_to_encrypt {
         my $pchunk = $ev;
 
         # WARNING The checks here are coupled to the ones in Backup::backup
+        # WARNING One check is missing here, which means that some chunks might get encrypted and then never collected
 
         next if $self->{target}->stored_chunk_from_inventory($pchunk);
         next if $self->{target}->is_pchunk_being_stored($pchunk);
@@ -155,7 +158,6 @@ sub next_chunk_to_encrypt {
 sub get_proc_chunkref {
     my ($self, $proc) = @_;
     my $cref = $proc->chunkref;
-    delete $self->{procs}{$proc};
     $self->{uncollected_bytes} -= $proc->size_on_disk;
     $self->{uncollected_chunks}--;
     return ($cref, $proc->size_on_disk);
