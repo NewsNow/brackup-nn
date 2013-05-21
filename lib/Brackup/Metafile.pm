@@ -38,34 +38,75 @@ sub open {
     else {
         open $self->{fh}, "<", $file;
     }
+    
     $self->{linenum} = 0;
+    $self->{data} = [];
+    $self->{buffer} = '';
     return $self;
+}
+
+sub preload {
+    my $self = shift;
+    
+    my $data;
+    my $bytes = read($self->{fh}, $data, 1048576, 0);
+
+    $self->{'data'} = [ split("\n", $self->{'buffer'} . $data, -1) ];
+    
+    unless($bytes) {
+        $self->{buffer} = '';
+        return undef;
+    }
+    
+    $self->{'buffer'} = pop(@{$self->{'data'}});
+    
+    return $bytes;
+}
+
+sub line {
+    my $self = shift;
+    
+    while( !scalar(@{$self->{'data'}}) && $self->preload() ) {
+        ;
+    }
+    
+    return shift @{$self->{'data'}};
 }
 
 sub readline {
     my $self = shift;
-    my $ret = {};
-    my $line;  #
-    my $fh = $self->{fh};
-    while (defined ($line = <$fh>)) {
+    my $ret;
+    my $line;
+    while (1) {
+        # Repeat sub line here for speed.
+        while( !scalar(@{$self->{'data'}}) && $self->preload() ) {
+            ;
+        }
+    
+        return undef unless defined( $line = shift @{$self->{'data'}} );
+         
         $self->{linenum}++;
+         
+        if ($line eq "") {
+            return $ret || {};
+        }
+
+        if (substr($line,0,1) eq ' ' && $line =~ /^\s+(.+)/) {
+            die "Can't continue line without start" unless $self->{last};
+            ${ $self->{last} } .= " $1";
+            next;
+        }
+         
         if ($line =~ /^([\w\-]+):\s*(.+)/) {
             $ret->{$1} = $2;
             $self->{last} = \$ret->{$1};
-            next;
-        }
-        if ($line eq "\n") {
-            return $ret;
-        }
-        if ($line =~ /^\s+(.+)/) {
-            die "Can't continue line without start" unless $self->{last};
-            ${ $self->{last} } .= " $1";
             next;
         }
 
         $line =~ s/[^[:print:]]/?/g;
         die "Unexpected line in metafile $self->{filename}, line $self->{linenum}: $line";
     }
+
     return undef;
 }
 
