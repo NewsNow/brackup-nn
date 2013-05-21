@@ -122,7 +122,7 @@ sub start_some_processes {
 
     my $pchunk;
     while ($self->num_running_procs < $self->{target}->{gpg_daemons} &&
-           $self->uncollected_chunks < 20 &&
+           $self->uncollected_chunks < 80 &&
            $self->num_uncollected_bytes < 128 * 1024 * 1024 &&
            ($pchunk = $self->next_chunk_to_encrypt)) {
         $self->_proc_summary_dump;
