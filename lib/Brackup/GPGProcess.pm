@@ -69,7 +69,8 @@ sub chunkref {
 
 sub size_on_disk {
     my $self = shift;
-    return -s $self->{destfh}->filename;
+    return $self->{'_size'} if defined $self->{'_size'};
+    return ($self->{'_size'} = (-s $self->{destfh}->filename));
 }
 
 1;
