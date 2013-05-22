@@ -25,6 +25,8 @@ use Brackup::DecryptedFile;
 use Brackup::ProcManager;
 use Carp qw(croak);
 
+use Time::HiRes qw(time);
+
 sub new {
     my ($class, $confsec, $opts) = @_;
     my $self = bless {}, $class;
@@ -356,6 +358,8 @@ sub loop_items_in_backups {
     # verbose
     # no_gpg
 
+    # Enable autoflush for smoother progress logging
+    select(STDERR); $|=1; select(STDOUT); $|=1;
     my @backups = $self->backups;
     foreach my $i (0 .. $#backups) {
         my $backup = $backups[$i];
@@ -383,10 +387,12 @@ sub loop_items_in_backups {
         my $size = (-s $localfile);
          
         my $is_header = 1;
+        my $t_log = time;
         while (my $it = $parser->readline) {
-            unless( $parser->{linenum} % 50000 ) {
+            if( time - $t_log >= 0.25 ) {
                 $bytes = sprintf("%3d%%", tell($parser->{fh}) / $size * 100);
                 print STDERR $bytes . ("\x08" x length($bytes));
+                $t_log = time;
             }
               
             &$callback($it, $is_header, $backup->filename);
