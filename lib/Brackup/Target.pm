@@ -410,6 +410,8 @@ sub fsck {
     # Store names of used chunks here
     my %USEDCHUNKS;
 
+    my @labels = ('p_offset', 'p_length', 'range_or_s_length', 's_digest', 'p_digest');
+
     my $num_metafiles = $self->loop_items_in_backups (sub {
         my $item = shift;
         my $is_header = shift;
@@ -433,15 +435,8 @@ sub fsck {
 
             # {METASYNTAX} (search for this label to see where else this syntax is used) -- see Brackup::StoredChunk::to_meta
 
-            my @labels = ('p_offset', 'p_length', 'range_or_s_length', 's_digest', 'p_digest');
             my %chunkdata = ();
-            my $i = 0;
-            foreach my $d (split(/;/, $filechunk)){
-                $d =~ s/^\s+|\s+$//g;
-                die "Cannot find '$labels[$i]' in '$filechunk' in metafile '$backupname'" unless defined $d;
-                $chunkdata{$labels[$i]} = $d;
-                $i++;
-            }
+            @chunkdata{@labels} = split(/;/, $filechunk);
 
             if($chunkdata{range_or_s_length} =~ /^(\d+)-(\d+)$/){
                 $chunkdata{s_range} = $chunkdata{range_or_s_length};
