@@ -436,7 +436,7 @@ sub fsck {
 
     $step = 'i_meta_target';
     warn "* I. Checking current data integrity $label_dryrun\n";
-    warn "  *  Enumerating chunks on the target\n";
+    warn "  * Enumerating chunks on the target\n";
 
     # Get a list of chunks on the target with their size
     my $CHUNKS = $self->chunks_with_length;
@@ -569,7 +569,7 @@ sub fsck {
     # Missing entries are added, and superfluous entries are deleted.
 
     $step = 'ii_inv';
-    warn "  * II. Comparing the local inventory to the data collected $label_dryrun\n";
+    warn "* II. Comparing the local inventory to the data collected $label_dryrun\n";
 
     my $label_curval = 'Description in inventory:';
     my $label_bkpval = 'Description from target :';
@@ -582,19 +582,19 @@ sub fsck {
             delete $INV{$key};
 
             unless($curval eq $bkpval){
-                warn "    * Mismatch between inventory and target for chunk '$key'\n" if $opts->{verbose};
-                warn "      - $label_curval '$curval'\n - $label_bkpval '$bkpval'\n" if $opts->{verbose} && $opts->{verbose} >= 2;
+                warn "  * Mismatch between inventory and target for chunk '$key'\n" if $opts->{verbose};
+                warn "    - $label_curval '$curval'\n - $label_bkpval '$bkpval'\n" if $opts->{verbose} && $opts->{verbose} >= 2;
                 $errors{$step}++;
                 unless($opts->{dryrun}){
-                    warn "      - Deleting from inventory to force re-upload\n" if $opts->{verbose};
+                    warn "    - Deleting from inventory to force re-upload\n" if $opts->{verbose};
                     $self->inventory_db->delete($key);
                 }
             }
         }
         else{
-            warn "    * Chunk '$key' in inventory is missing (referenced by metafiles but missing on target)"
+            warn "  * Chunk '$key' in inventory is missing (referenced by metafiles but missing on target)"
                 . " or unused (not referenced by metafiles)\n" if $opts->{verbose};
-            warn "      - $label_curval '$curval'\n" if $opts->{verbose} && $opts->{verbose} >= 2;
+            warn "    - $label_curval '$curval'\n" if $opts->{verbose} && $opts->{verbose} >= 2;
 
             # The entry in the inventory here might refer to a valid chunk in the target, in which case
             # this is not a serious error. However, to ensure this, we would need to check if the chunk
@@ -602,7 +602,7 @@ sub fsck {
 
             $errors{$step}++;
             unless($opts->{dryrun}){
-                warn "      - Deleting from inventory\n" if $opts->{verbose};
+                warn "    - Deleting from inventory\n" if $opts->{verbose};
                 $self->inventory_db->delete($key);
             }
         }
@@ -611,11 +611,11 @@ sub fsck {
     # Add to the inventory any valid items found in the metafiles that were not found in the inventory.
     foreach my $key (keys %INV){
         my $bkpval = $INV{$key};
-        warn "    * Chunk '$key' in target metafiles is missing from inventory\n" if $opts->{verbose};
-        warn "      - $label_bkpval '$bkpval'\n" if $opts->{verbose} && $opts->{verbose} >= 2;
+        warn "  * Chunk '$key' in target metafiles is missing from inventory\n" if $opts->{verbose};
+        warn "    - $label_bkpval '$bkpval'\n" if $opts->{verbose} && $opts->{verbose} >= 2;
         $errors{$step}++;
         unless($opts->{dryrun}){
-            warn "      - Adding to inventory\n" if $opts->{verbose};
+            warn "    - Adding to inventory\n" if $opts->{verbose};
             $self->inventory_db->set($key, $bkpval);
         }
     }
