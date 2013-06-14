@@ -61,7 +61,7 @@ sub decrypt_file_if_needed {
     if ($meta and $meta =~ /[\x00-\x08]/) {  # silly is-binary heuristic
         die "'$filename' is encrypted, aborting" if $opts->{no_gpg};
         my $new_file = decrypt_file($filename,no_batch => 1);
-        if (defined $new_file && $opts->{verbose}) {
+        if (defined $new_file && $opts->{verbose} && $opts->{verbose} > 2) {
           warn "Decrypted ${filename} to ${new_file}.\n";
         }
         return $new_file;
