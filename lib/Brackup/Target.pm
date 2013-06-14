@@ -25,7 +25,9 @@ use Brackup::DecryptedFile;
 use Brackup::ProcManager;
 use Carp qw(croak);
 
-use Time::HiRes qw(time);
+use Time::HiRes qw(time sleep);
+use threads;
+use threads::shared;
 
 sub new {
     my ($class, $confsec, $opts) = @_;
@@ -47,6 +49,7 @@ sub new {
 
     $self->{verbose} = $opts->{verbose};
     $self->{daemons} = $confsec->value("daemons") || '0';
+    $self->{threads} = $confsec->value("threads") || '4';
     $self->{gpg_daemons} = $confsec->value("gpg_daemons") || '5';
     $self->{local_meta_dir}    = $confsec->value('local_meta_dir');
 
@@ -346,6 +349,48 @@ sub get_and_decrypt_backup {
     return ( ($fobj->name || $tempfile), $fobj );
 }
 
+sub item_in_backup_progress {
+    my $self = shift;
+    my $slot = shift;
+    return ( ($slot > 0) ? ("\n" x $slot) : "", "\x1B[K\n" . "\x1B[" . ($slot+1) . "A" );
+}
+
+sub item_in_backup {
+    my $self = shift;
+    my $callback = shift;
+    my $opt = shift;
+    my $backup = shift;
+    my $filename = shift;
+    my $localfile = shift;
+    my $count = shift;
+    my $backups = shift;
+    my $slot = shift;
+
+    my ($head, $tail) = $self->item_in_backup_progress($slot);
+    my $format = "[%3d%%] (%8d) ";
+    my $log = $head . sprintf "    * Backup [%3d/%3d] (%d) ", $count, $backups, $slot;
+         
+    my $parser = Brackup::Metafile->open($localfile);
+         
+    my $size = (-s $localfile);
+         
+    my $is_header = 1;
+    my $t_log = time;
+    while (my $it = $parser->readline) {
+        if( $opt->{verbose} && (time - $t_log) >= 1 ) {
+            print STDERR $log . sprintf($format, tell($parser->{fh}) / $size * 100, $parser->{linenum}) . $filename . $tail;
+            $t_log = time;
+        }
+        
+        &$callback($it, $is_header, $localfile);
+        $is_header = 0;
+    }
+    
+    print STDERR $log . sprintf($format, '100', $parser->{linenum}) . "$filename done." . $tail if $opt->{verbose};
+    
+    close $parser->{fh};
+}
+
 # Opens all metafiles and loops through their sections
 # &$callback( $meta_file_item, $is_header, $backup_name ) is called for each item in each backup
 # Returns the number of metafiles found
@@ -360,48 +405,72 @@ sub loop_items_in_backups {
 
     # Enable autoflush for smoother progress logging
     select(STDERR); $|=1; select(STDOUT); $|=1;
+    
     my @backups = $self->backups;
+    
+    my $threads = {}; # Thread ID => Slot Number
+    my $slots = []; # Slot Number => Thread ID
+    my $slot = 0;
+    
     foreach my $i (0 .. $#backups) {
+         
+        while( keys %$threads >= $self->{threads} ) {
+            my @threads = threads->list(threads::running);
+            # Loop through all the threads
+            if(my @joinable = threads->list(threads::joinable)) {
+                foreach my $thr (threads->list(threads::joinable)) {
+                    undef $slots->[ $threads->{$thr->tid}->{slot} ];
+                    delete $threads->{$thr->tid};
+                    $thr->join();
+                }
+            }
+            else {
+                sleep 0.25;
+            }
+        }
+         
+        # Find spare thread slot
+        for($slot = 0; $slots->[$slot]; $slot++) {;}       
+        my ($head, $tail) = $self->item_in_backup_progress($slot);
+         
         my $backup = $backups[$i];
-        print STDERR sprintf "    * Backup %s [%d/%d] ", $backup->filename, $i+1, scalar(@backups)
-            if $opt->{verbose};
          
         my $localfile;
         my $parser;
         # Try local file
         if( $opt->{meta_dir} ){
             $localfile = File::Spec->catfile($opt->{meta_dir}, $backup->filename);
-            $parser = Brackup::Metafile->open($localfile) if(-e $localfile);
         }
          
         # If failed or not available:
-        unless($parser){
-            print STDERR "(downloading from target) " if $opt->{meta_dir} && $opt->{verbose};
-            my $fobj;
-            ($localfile, $fobj) = $self->get_and_decrypt_backup($backup->filename, $opt);
-            $parser = Brackup::Metafile->open($localfile);
-        }
-         
-        print STDERR "reading... " if $opt->{verbose};
-        my $bytes;
-        my $size = (-s $localfile);
-         
-        my $is_header = 1;
-        my $t_log = time;
-        while (my $it = $parser->readline) {
-            if( time - $t_log >= 0.25 ) {
-                $bytes = sprintf("%3d%%", tell($parser->{fh}) / $size * 100);
-                print STDERR $bytes . ("\x08" x length($bytes));
-                $t_log = time;
-            }
+        my $fobj;
+        unless(-e $localfile) {
+            print STDERR $head . sprintf("    * Backup [%3d/%3d] (%d) [    ] (        ) %s (downloading from target)", $i+1, scalar(@backups), $slot, $backup->filename) . $tail
+                if $opt->{verbose};
               
-            &$callback($it, $is_header, $backup->filename);
-            $is_header = 0;
+            ($localfile, $fobj) = $self->get_and_decrypt_backup($backup->filename, $opt);
         }
+        
+        print STDERR $head . sprintf("    * Backup [%3d/%3d] (%d) [    ] (        ) %s", $i+1, scalar(@backups), $slot, $backup->filename) . $tail
+            if $opt->{verbose};
+
+        my $thread = threads->create(
+            sub {
+                $self->item_in_backup( $callback, $opt, $backup, $backup->filename, $localfile, $i+1, scalar(@backups), $slot );
+            }
+            );
          
-        print STDERR "100% done.\n" if $opt->{verbose};
+        $threads->{$thread->tid} = { 'slot' => $slot, 'fobj' => $fobj };
+        $slots->[$slot] = $thread->tid;
     }
 
+    # Loop through all the threads
+    foreach my $thr (threads->list()) {
+        $thr->join();
+    }
+    
+    print STDERR ("\n" x (@$slots)) . "Threads finished.\n";
+    
     return scalar(@backups);
 }
 
@@ -442,10 +511,10 @@ sub fsck {
     my $CHUNKS = $self->chunks_with_length;
 
     # Loop through all backup (meta) files and recreate the inventory into this hash
-    my %INV;
+    my %INV :shared = ();
 
     # Store names of used chunks here
-    my %USEDCHUNKS;
+    my %USEDCHUNKS :shared = ();
 
     my @labels = ('p_offset', 'p_length', 'range_or_s_length', 's_digest', 'p_digest');
 
