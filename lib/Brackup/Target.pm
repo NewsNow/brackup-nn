@@ -424,8 +424,14 @@ sub loop_items_in_backups {
             if(my @joinable = threads->list(threads::joinable)) {
                 foreach my $thr (@joinable) {
                     undef $slots->[ $threads->{$thr->tid}->{slot} ];
+                    unless( $thr->join() ) {
+                        # Position cursor below the progress meter lines
+                        print STDERR [$self->item_in_backup_progress($self->{threads})]->[0] if $opt->{verbose};
+                        die "Aborting on failure to read metafile '" . $threads->{$thr->tid}->{localfile} . "'" 
+                            . " , error '" . $thr->error() . "'"
+                            ;
+                        }
                     delete $threads->{$thr->tid};
-                    $thr->join();
                 }
             }
             else {
@@ -461,11 +467,20 @@ sub loop_items_in_backups {
         if($self->{threads}) {
             my $thread = threads->create(
                 sub {
-                    $self->item_in_backup( $callback, $opt, $backup, $backup->filename, $localfile, $i+1, scalar(@backups), $slot );
+                    eval {
+                        $self->item_in_backup( $callback, $opt, $backup, $backup->filename, $localfile, $i+1, scalar(@backups), $slot );
+                        return 1;
+                    } || do {
+                        # Inhibit the "Thread XX terminated abnormally" message
+                        close STDERR;
+                        # Propagate the exception
+                        die $@;
+                    };
+                    return 1;
                 }
             );
          
-            $threads->{$thread->tid} = { 'slot' => $slot, 'fobj' => $fobj };
+            $threads->{$thread->tid} = { 'slot' => $slot, 'fobj' => $fobj, 'localfile' => $localfile };
             $slots->[$slot] = $thread->tid;
         }
         else {
@@ -476,7 +491,13 @@ sub loop_items_in_backups {
     if($self->{threads}) {
         # Loop through all the threads
         foreach my $thr (threads->list()) {
-            $thr->join();
+            unless( $thr->join() ) {
+                # Position cursor below the progress meter lines
+                print STDERR [$self->item_in_backup_progress($self->{threads})]->[0] if $opt->{verbose};
+                die "Aborting on failure to read metafile '" . $threads->{$thr->tid}->{localfile} . "'" 
+                   . " , error '" . $thr->error() . "'"
+                   ;
+            }
         }
     }
     
