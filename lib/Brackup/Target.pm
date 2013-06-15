@@ -49,7 +49,7 @@ sub new {
 
     $self->{verbose} = $opts->{verbose};
     $self->{daemons} = $confsec->value("daemons") || '0';
-    $self->{threads} = $confsec->value("threads") || '4';
+    $self->{threads} = (eval "use threads; use threads::shared; 1;") ? (defined($confsec->value("threads")) ? $confsec->value("threads") : 4) : 0;
     $self->{gpg_daemons} = $confsec->value("gpg_daemons") || '5';
     $self->{local_meta_dir}    = $confsec->value('local_meta_dir');
 
@@ -366,9 +366,12 @@ sub item_in_backup {
     my $backups = shift;
     my $slot = shift;
 
-    my ($head, $tail) = $self->item_in_backup_progress($slot);
-    my $format = "[%3d%%] (%8d) ";
-    my $log = $head . sprintf "    * Backup [%3d/%3d] (%d) ", $count, $backups, $slot;
+    my ($head, $tail, $format, $log);
+    if($opt->{verbose}){
+        ($head, $tail) = $self->item_in_backup_progress($slot);
+        $format = "[%3d%%] (%8d) ";
+        $log = $head . sprintf "    * Backup [%3d/%3d] (%d) ", $count, $backups, $slot;
+    }
          
     my $parser = Brackup::Metafile->open($localfile);
          
@@ -402,6 +405,7 @@ sub loop_items_in_backups {
     # meta_dir -- if specified, attempt to read local metafiles
     # verbose
     # no_gpg
+    # threads -- number of threads to use, or 0 if threading shouldn't be used at all
 
     # Enable autoflush for smoother progress logging
     select(STDERR); $|=1; select(STDOUT); $|=1;
@@ -414,11 +418,11 @@ sub loop_items_in_backups {
     
     foreach my $i (0 .. $#backups) {
          
-        while( keys %$threads >= $self->{threads} ) {
+        while( $self->{threads} && (keys %$threads >= $self->{threads}) ) {
             my @threads = threads->list(threads::running);
             # Loop through all the threads
             if(my @joinable = threads->list(threads::joinable)) {
-                foreach my $thr (threads->list(threads::joinable)) {
+                foreach my $thr (@joinable) {
                     undef $slots->[ $threads->{$thr->tid}->{slot} ];
                     delete $threads->{$thr->tid};
                     $thr->join();
@@ -442,7 +446,7 @@ sub loop_items_in_backups {
             $localfile = File::Spec->catfile($opt->{meta_dir}, $backup->filename);
         }
          
-        # If failed or not available:
+        # If not available:
         my $fobj;
         unless(-e $localfile) {
             print STDERR $head . sprintf("    * Backup [%3d/%3d] (%d) [    ] (        ) %s (downloading from target)", $i+1, scalar(@backups), $slot, $backup->filename) . $tail
@@ -454,22 +458,29 @@ sub loop_items_in_backups {
         print STDERR $head . sprintf("    * Backup [%3d/%3d] (%d) [    ] (        ) %s", $i+1, scalar(@backups), $slot, $backup->filename) . $tail
             if $opt->{verbose};
 
-        my $thread = threads->create(
-            sub {
-                $self->item_in_backup( $callback, $opt, $backup, $backup->filename, $localfile, $i+1, scalar(@backups), $slot );
-            }
+        if($self->{threads}) {
+            my $thread = threads->create(
+                sub {
+                    $self->item_in_backup( $callback, $opt, $backup, $backup->filename, $localfile, $i+1, scalar(@backups), $slot );
+                }
             );
          
-        $threads->{$thread->tid} = { 'slot' => $slot, 'fobj' => $fobj };
-        $slots->[$slot] = $thread->tid;
+            $threads->{$thread->tid} = { 'slot' => $slot, 'fobj' => $fobj };
+            $slots->[$slot] = $thread->tid;
+        }
+        else {
+            $self->item_in_backup( $callback, $opt, $backup, $backup->filename, $localfile, $i+1, scalar(@backups), $slot );
+        }
     }
 
-    # Loop through all the threads
-    foreach my $thr (threads->list()) {
-        $thr->join();
+    if($self->{threads}) {
+        # Loop through all the threads
+        foreach my $thr (threads->list()) {
+            $thr->join();
+        }
     }
     
-    print STDERR ("\n" x (@$slots)) . "Threads finished.\n";
+    print STDERR ("\n" x (@$slots)) . "Finished.\n";
     
     return scalar(@backups);
 }
@@ -481,6 +492,9 @@ sub fsck {
     # meta_dir
     # verbose
     # dryrun
+    # threads -- number of threads to use
+    # skip_gc
+    # force_gc
 
     my $label_dryrun = $opts->{dryrun} ? '(DRY RUN)' : '';
     warn "* Fsck starts... $label_dryrun\n";
