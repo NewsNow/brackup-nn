@@ -26,8 +26,6 @@ use Brackup::ProcManager;
 use Carp qw(croak);
 
 use Time::HiRes qw(time sleep);
-use threads;
-use threads::shared;
 
 sub new {
     my ($class, $confsec, $opts) = @_;
@@ -49,7 +47,13 @@ sub new {
 
     $self->{verbose} = $opts->{verbose};
     $self->{daemons} = $confsec->value("daemons") || '0';
-    $self->{threads} = (eval "use threads; use threads::shared; 1;") ? (defined($confsec->value("threads")) ? $confsec->value("threads") : 4) : 0;
+    
+    # Reads the 'threads' option, and then check for existence of threads module, so that
+    # an error is not reported about "Unknown config params" where threads are not available
+    # but option is specified in .brackup.conf
+    $self->{threads} = (defined($confsec->value("threads")) ? $confsec->value("threads") : 4);
+    $self->{threads} = 0 unless eval "use threads; use threads::shared; 1;";
+    
     $self->{gpg_daemons} = $confsec->value("gpg_daemons") || '5';
     $self->{local_meta_dir}    = $confsec->value('local_meta_dir');
 
@@ -419,9 +423,8 @@ sub loop_items_in_backups {
     foreach my $i (0 .. $#backups) {
          
         while( $self->{threads} && (keys %$threads >= $self->{threads}) ) {
-            my @threads = threads->list(threads::running);
             # Loop through all the threads
-            if(my @joinable = threads->list(threads::joinable)) {
+            if(my @joinable = threads->list(&threads::joinable)) {
                 foreach my $thr (@joinable) {
                     undef $slots->[ $threads->{$thr->tid}->{slot} ];
                     unless( $thr->join() ) {
@@ -940,7 +943,7 @@ Specifies the maximum number of child processes used to store chunks in parallel
 
 =item B<threads>
 
-Specifies the maximum number of threads used to read metafiles by the fsck operation.
+Specifies the maximum number of threads used to read metafiles by I<fsck>.
 
 =item B<gpg_daemons>
 
