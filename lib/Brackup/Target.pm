@@ -903,6 +903,10 @@ for any parameters that are not already defined in the current section e.g.:
 
 Specifies the maximum number of child processes used to store chunks in parallel.
 
+=item B<threads>
+
+Specifies the maximum number of threads used to read metafiles by the fsck operation.
+
 =item B<gpg_daemons>
 
 Specifies the maximum number of child processes used to encrypt chunks in parallel.
