@@ -71,6 +71,58 @@ sub _driver_meta {
     return $ret;
 }
 
+sub _restore_item {
+    my $self = shift;
+    my $meta = shift;
+    my $it = shift;
+    
+    my $type = $it->{Type} || "f";
+    my $path = unprintable($it->{Path});
+    my $path_escaped = $it->{Path};
+    my $path_escaped_stripped = $it->{Path};
+    die "Unknown filetype: type=$type, file: $path_escaped" unless $type =~ /^[ldfp]$/;
+    
+    if ($self->{prefix}) {
+        return undef unless $path =~ m/^\Q$self->{prefix}\E(?:\/|$)/;
+        # if non-dir and $path eq $self->{prefix}, strip all but last component
+        if ($type ne 'd' && $path =~ m/^\Q$self->{prefix}\E\/?$/) {
+            if (my ($leading_prefix) = ($self->{prefix} =~ m/^(.*\/)[^\/]+\/?$/)) {
+                $path =~ s/^\Q$leading_prefix\E//;
+                $path_escaped_stripped =~ s/^\Q$leading_prefix\E//;
+            }
+        }
+        else {
+            $path =~ s/^\Q$self->{prefix}\E\/?//;
+            $path_escaped_stripped =~ s/^\Q$self->{prefix}\E\/?//;
+        }
+    }
+    
+    my $full = $self->{to} . "/" . $path;
+    my $full_escaped = $self->{to} . "/" . $path_escaped_stripped;
+    
+    # restore default modes/user/group from header
+    $it->{Mode} ||= ($type eq 'd' ? $meta->{DefaultDirMode} : $meta->{DefaultFileMode});
+    $it->{UID}  ||= $meta->{DefaultUID};
+    $it->{GID}  ||= $meta->{DefaultGID};
+    
+    warn " * restoring $path_escaped to $full_escaped\n" if $self->{verbose};
+    my $err;
+    try {
+        $self->_restore_link     ($full, $it) if $type eq "l";
+        $self->_restore_directory($full, $it) if $type eq "d";
+        $self->_restore_fifo     ($full, $it) if $type eq "p";
+        $self->__restore_file    ($full, $it) if $type eq "f";
+        
+        $self->_chown($full, $it, $type, $meta) if $it->{UID} || $it->{GID};
+        
+    } catch {
+        die $err unless $self->{onerror} eq 'continue';
+        return $_;
+    };
+    
+    return undef;
+}
+
 sub restore {
     my ($self) = @_;
     my $parser = $self->parser;
@@ -107,7 +159,8 @@ sub restore {
     # then the rest. The file sorting allows us to avoid loading composite
     # chunks and identical single chunk files multiple times from the target
     # (see _restore_file)
-    my (@dirs, @files, @rest);
+    my (@dirs, @rest);
+    my $files;
     while (my $it = $parser->readline) {
         my $type = $it->{Type} || 'f';
         if($type eq 'f') {
@@ -115,67 +168,38 @@ sub restore {
             ($it->{Chunks} || '') =~ /^(\S+)/;
             my ($offset, $len, $enc_len, $dig) = split(/;/, $1 || '');
             $it->{fst_dig} = $dig || '';
-            push @files, $it;
+            push @{$files->{$dig}}, $it;
         } elsif($type eq 'd') {
             push @dirs, $it;
         } else {
             push @rest, $it;
         }
     }
-    @files = sort { $a->{fst_dig} cmp $b->{fst_dig} } @files;
-
+    
     my @errors;
     my $restore_count = 0;
-    for my $it (@dirs, @files, @rest) {
-        my $type = $it->{Type} || "f";
-        my $path = unprintable($it->{Path});
-        my $path_escaped = $it->{Path};
-        my $path_escaped_stripped = $it->{Path};
-        die "Unknown filetype: type=$type, file: $path_escaped" unless $type =~ /^[ldfp]$/;
+    my $err;
+    for my $it (@dirs, @rest) {
+        $err = $self->_restore_item($meta, $it);
+         
+        push @errors, $err if defined $err;
+         
+        $restore_count++;       
+    }
 
-        if ($self->{prefix}) {
-            next unless $path =~ m/^\Q$self->{prefix}\E(?:\/|$)/;
-            # if non-dir and $path eq $self->{prefix}, strip all but last component
-            if ($type ne 'd' && $path =~ m/^\Q$self->{prefix}\E\/?$/) {
-                if (my ($leading_prefix) = ($self->{prefix} =~ m/^(.*\/)[^\/]+\/?$/)) {
-                    $path =~ s/^\Q$leading_prefix\E//;
-                    $path_escaped_stripped =~ s/^\Q$leading_prefix\E//;
-                }
-            }
-            else {
-                $path =~ s/^\Q$self->{prefix}\E\/?//;
-                $path_escaped_stripped =~ s/^\Q$self->{prefix}\E\/?//;
-            }
-        }
-
-        $restore_count++;
-        my $full = $self->{to} . "/" . $path;
-        my $full_escaped = $self->{to} . "/" . $path_escaped_stripped;
-
-        # restore default modes/user/group from header
-        $it->{Mode} ||= ($type eq 'd' ? $meta->{DefaultDirMode} : $meta->{DefaultFileMode});
-        $it->{UID}  ||= $meta->{DefaultUID};
-        $it->{GID}  ||= $meta->{DefaultGID};
-
-        warn " * restoring $path_escaped to $full_escaped\n" if $self->{verbose};
-        try {
-            $self->_restore_link     ($full, $it) if $type eq "l";
-            $self->_restore_directory($full, $it) if $type eq "d";
-            $self->_restore_fifo     ($full, $it) if $type eq "p";
-            $self->_restore_file     ($full, $it) if $type eq "f";
-
-            $self->_chown($full, $it, $type, $meta) if $it->{UID} || $it->{GID};
-
-        } catch {
-            die $_ unless $self->{onerror} eq 'continue';
-            push @errors, $_;
-        };
-
+    my ($k, $it_array);
+    while( ($k, $it_array) = each %$files ) {
+        $err = $self->_restore_files($meta, $it_array);
+         
+        push @errors, @$err if defined $err && ref($err) eq 'ARRAY';
+         
+        $restore_count += @$it_array;
+         
         if($self->{daemons}) {
             Brackup::ProcManager->wait_for_extra_children('restore');
         }
     }
-
+    
     # clear chunk cached by _restore_file
     delete $self->{_cached_dig};
     delete $self->{_cached_dataref};
@@ -359,14 +383,16 @@ sub _restore_fifo {
     $self->_update_statinfo($full, $it);
 }
 
-sub _restore_file {
-    my ($self, $full, $it) = @_;
+sub _restore_files {
+    my ($self, $meta, $it_array) = @_;
 
     unless( $self->{daemons} ){
-        return $self->__restore_file($full, $it);
+        return $self->__restore_files($meta, $it_array);
     }
 
-    Brackup::ProcManager->start_child('restore', $self, 'restore_daemon_handler', [$full, $it]);
+    Brackup::ProcManager->start_child('restore', $self, 'restore_daemon_handler', [$meta, $it_array]);
+    
+     return undef;
 }
 
 sub restore_daemon_handler {
@@ -375,7 +401,8 @@ sub restore_daemon_handler {
     if($flag eq 'inchild'){
 
         if(eval {
-            $self->__restore_file( @{ $data->{data} } );
+            my $err = $self->__restore_files( @{ $data->{data} } );
+                print join("\n", @$err) if defined $err && ref($err) eq 'ARRAY';
             1;
         }){
             return 0;
@@ -392,7 +419,7 @@ sub restore_daemon_handler {
         my $r = <$fh>;
         if($code != 0){
             die "Restore daemon returned '$r' with code '$code' PID '$data->{pid}'" unless $self->{onerror} eq 'continue';
-            push @{ $self->{childerrors} }, $r if $code != 0;
+            push @{ $self->{childerrors} }, split("\n",$r) if $code != 0;
         }
         else{
             # Now we can use all threads
@@ -400,6 +427,20 @@ sub restore_daemon_handler {
         }
 
     }
+}
+
+sub __restore_files {
+    my ($self, $meta, $it_array) = @_;
+    
+    my @errors;
+    my $err;
+    foreach my $it (@$it_array) {
+        $err = $self->_restore_item($meta, $it);
+        
+        push @errors, $err if defined $err;
+    }
+    
+    return \@errors;
 }
 
 sub __restore_file {
