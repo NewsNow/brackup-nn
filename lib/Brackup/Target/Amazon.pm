@@ -167,9 +167,13 @@ sub _store_chunk {
     my $dig = $chunk->backup_digest;
     my $fh = $chunk->chunkref;
    
-    # Enable passing entire chunk by scalar ref, as this seems to result
-    # in modest performance improvement for chunksizes <= 10Mb
-    my $chunkref = do { local $/; <$fh> }; $fh = \$chunkref;
+    # Uncomment to enable passing entire chunk by scalar ref,
+    # as this seems to result in modest performance improvement
+    # for chunksizes <= 10Mb.
+    # N.B. This requires patched version of Net::Amazon::S3
+    # that at time of writing doesn't support passing in scalar
+    # references.
+    # my $chunkref = do { local $/; <$fh> }; $fh = \$chunkref;
 
     return $self->{s3c}->put(
          bucket => $self->{chunk_bucket},
