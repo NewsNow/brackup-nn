@@ -40,7 +40,7 @@ sub new {
     $self->{finalized} = 0; # false
     $self->{max_size}  = $root->max_composite_size;
     $self->{target}    = $target;
-    $self->{subchunks} = [];
+    $self->{subchunks} = {};
     $self->{sha1}      = Digest::SHA1->new;
     $self->{_chunk_fh} = tempfile_obj();
     return $self;
@@ -59,7 +59,7 @@ sub append_little_chunk {
     my $to = $self->{used_up};
 
     $schunk->set_composite_chunk($self, $from, $to);
-    push @{$self->{subchunks}}, $schunk;
+    $self->{subchunks}->{$schunk->pchunk->inventory_key} = $schunk;
 }
 
 sub digest {
@@ -76,7 +76,8 @@ sub add_me_to_inventory {
     my $self = shift;
     ## target is not needed here
 
-    foreach my $schunk (@{$self->{subchunks}}) {
+    my ($k, $schunk);
+    while( ($k,$schunk) = each %{$self->{subchunks}} ) {
         $self->{target}->add_to_inventory($schunk->pchunk => $schunk);
     }
 }
@@ -96,12 +97,10 @@ sub finalize {
 
 sub stored_chunk_from_dup_internal_raw {
     my ($self, $pchunk) = @_;
-    my $ikey = $pchunk->inventory_key;
-    foreach my $schunk (@{$self->{subchunks}}) {
-        next unless $schunk->pchunk->inventory_key eq $ikey;
-        # match!  found a duplicate within ourselves
-        return $schunk->clone_but_for_pchunk($pchunk);
-    }
+    my $schunk = $self->{subchunks}->{$pchunk->inventory_key};
+    
+    return $schunk->clone_but_for_pchunk($pchunk) if $schunk;
+     
     return undef;
 }
 
