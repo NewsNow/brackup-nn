@@ -54,6 +54,30 @@ sub size {
     return $_[0]->{size};
 }
 
+sub set_incomplete {
+    $_[0]->{incomplete} = $_[1];
+    return $_[0];
+}
+
+sub incomplete {
+    return $_[0]->{incomplete};
+}
+
+sub set_now {
+    $_[0]->{now} = $_[1];
+    delete $_[0]->{ageindays};
+    return $_[0];
+}
+
+sub age {
+    return $_[0]->{now} - $_[0]->{time};
+}
+
+sub ageindays {
+    return $_[0]->{ageindays} if defined $_[0]->{ageindays};
+    $_[0]->{ageindays} = int( ( $_[0]->{now} - $_[0]->{time} ) / 60 / 60 / 24 + .5 );
+    return $_[0]->{ageindays};
+}
 
 1;
 

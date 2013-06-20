@@ -198,7 +198,7 @@ sub backup {
         $end_file->();
 
         if($Brackup::Util::SHUTDOWN_REQUESTED){
-            $error_to_note = 'stopped'; # add this to the meta file name
+            $error_to_note = 'stopped'; # add this to the meta file name {METANAME}
             return 0;
         }
 
@@ -363,7 +363,7 @@ sub backup {
             }else{ # A serious error occurred
 
                 warn "*** ERROR occurred: '$err' Attempting to flush metafile...\n";
-                $error_to_note = 'with-error'; # add this to the meta file name
+                $error_to_note = 'with-error'; # add this to the meta file name {METANAME}
                 $error_to_return = $err;
                 $cur_file_not_available = 1; # This prevents end_file from adding the file to be flushed to the metafile
                 last;

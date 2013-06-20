@@ -256,6 +256,12 @@ sub prune {
     die "ERROR: keep_backups option must be at least 1 if no source is specified\n"
         if( ! $opt{source} and ! $thinning and $keep_backups < 1 );
 
+    # The thinning algorithm searches for a complete backup in the time range
+    # desiredgap * ( 1 - thinning_fuzziness ) .. desiredgap * ( 1 + thinning_fuzziness ),
+    # where desiredgap is the time gap following the previous backup to keep, retrieved
+    # from the thinning config based on the age of the backups.
+    my $thinning_fuzziness = .3;
+
     # Parse the thinning config
     my %thinning_conf;
     if($thinning){
@@ -278,7 +284,10 @@ sub prune {
     # {METANAME}
     foreach my $b ($self->backups) {
         my $backup_name = $b->filename;
-        if ($backup_name =~ /^(.+)-\d+($|\.)/) {
+        if ($backup_name =~ /\.(stopped|with-error)($|\.)/){
+            $b->set_incomplete(1); # mark the backup object
+        }
+        if ($backup_name =~ /^(.*?)-[^-]+-\d+($|\.)/) {
             $backups{$1} ||= [];
             push @{ $backups{$1} }, $backup_name;
             $backup_objs{$1} ||= [];
@@ -289,39 +298,196 @@ sub prune {
         }
     }
 
+    # Enable to debug the thinning logic
+    if(0){
+        %backups = ( $self->{name} => [] );
+        %backup_objs = ( $self->{name} => [] );
+        my $start = time()-47*60*60;
+        for(my $i=0;$i<120;$i++){
+            my $name = 'backup'.$i;
+            my $bo = Brackup::TargetBackupStatInfo->new($self, $name,
+                                                        time => $start - ($i*60*60*12),
+                                                        size => 5);
+            if(int(rand(3))==0){ $bo->set_incomplete(1); }
+            push @{ $backups{$self->{name}} }, $name;
+            push @{ $backup_objs{$self->{name}} }, $bo;
+        }
+    }
+
     foreach my $source (keys %backups) {
         next if $opt{source} && $source ne $opt{source};
 
         if($thinning){
-            my $prevage;
+            my $prevtime;
             my $debug;
             my @backups_chron = sort { $a->time <=> $b->time } @{ $backup_objs{$source} };
 
-            # Never delete the latest backup
-            pop(@backups_chron);
+            # Never delete the latest complete backup, and ignore subsequent incomplete ones.
+            # The ages of backups are relative to the latest complete backup.
+            my $latest_bo; # The latest complete backup
+            my @latest_incomplete_bobjs; # Subequent incomplete backups
+            while(1){
+                $latest_bo = pop(@backups_chron);
+                if($latest_bo->incomplete) {
+                    unshift @latest_incomplete_bobjs, $latest_bo;
+                }
+                else {
+                    last;
+                }
+            }
 
-            foreach my $bo (@backups_chron) {
-                ## We loop through the points in forward chronological order, so age is decreasing!
-                my $bn = $bo->filename;
-                my $ageindays = int( $bo->time / 60 / 60 / 24 + .5 );
-                my $gapindays = int( ($prevage - $bo->time) / 60 / 60 / 24 + .5 ) if defined $prevage;
-                my $desiredgap;
+            # Add the reference point to the backups
+            foreach my $bo (@backups_chron){ $bo->set_now( $latest_bo->time ); }
+            $latest_bo->set_now( $latest_bo->time );
+            foreach my $bo (@latest_incomplete_bobjs){ $bo->set_now( $latest_bo->time ); }
 
-                foreach my $conf_age (reverse sort keys %thinning_conf){
+            # Return the desired gap for the backup
+            my $desiredgap_from_age = sub {
+                my $ageindays = shift;
+
+                my $desiredgap = 0;
+                ## sort in itself appears to sort the keys as strings
+                foreach my $conf_age (sort { $a <=> $b } keys %thinning_conf){
                     $desiredgap = $thinning_conf{$conf_age} if $ageindays >= $conf_age;
                 }
 
-                $debug =  "Thinning: $bn age:$ageindays gap:$gapindays des:$desiredgap" if $opt{verbose};
+                return $desiredgap;
+            };
 
-                if( (defined $prevage) && ( $desiredgap eq 'delete' || $gapindays < $desiredgap ) ) {
-                    push @backups_to_delete, $bn;
-                    warn $debug . " * DELETE\n" if $opt{verbose};
+            my $logline = sub {
+                return unless $opt{verbose};
+                my $bo = shift;
+                my $dodelete = shift; # 'del' or any other value
+                my $reason = shift;
+                warn 'Thinning:'
+                . ' cmpl:' . ($bo->incomplete ? 'n' : 'y')
+                . ' age:' . $bo->ageindays
+                . ' des:' . &$desiredgap_from_age( $bo->ageindays )
+                . ' gap:' . ((defined $prevtime) ? sprintf('%.2f', ($bo->time - $prevtime) / 60 / 60 / 24) : 'n/a')
+                . ($dodelete eq 'del' ? ' * DELETE' : ' - keep  ')
+                . ' (' . $reason. ')'
+                . ' - ' . $bo->filename
+                . "\n";
+            };
+
+            my $deleteme = sub {
+                my $bo = shift;
+                my $reason = shift;
+                &$logline($bo, 'del', $reason);
+                push @backups_to_delete, $bo->filename;
+            };
+
+            my $keepme = sub {
+                my $bo = shift;
+                my $reason = shift;
+                &$logline($bo, 'keep', $reason);
+                $prevtime = $bo->time;
+            };
+
+            for(my $i=0; $i<scalar(@backups_chron); $i++){
+
+                # We loop through the points in forward chronological order, so age is decreasing!
+
+                my $bo = $backups_chron[$i];
+
+                my $desiredgap = &$desiredgap_from_age( $bo->ageindays );
+
+                # If according to the configuration, we should delete all backups that are this old:
+                if( $desiredgap eq 'delete' ){
+                    &$deleteme($bo, 'desiredgap==delete');
+                    next;
                 }
-                else {
-                    $prevage = $bo->time;
-                    warn $debug . " - keep\n" if $opt{verbose};
+
+                # If desiredgap is 0, we necessarily keep the backup
+                if( $desiredgap == 0 ){
+                    &$keepme($bo, 'desiredgap==0');
+                    next;
+                }
+
+                # If there is no previous backup, we pretend that its time is our time - desired gap
+                # so that the fuzziness logic would apply to the very first backup as well
+                $prevtime = $bo->time - $desiredgap * 60 * 60 * 24 unless defined $prevtime;
+
+                # We can calculate the gap now
+                my $gapindays = ($bo->time - $prevtime) / 60 / 60 / 24;
+
+                # If the gap is smaller than the desired gap - fuzziness, then we delete
+                if( $gapindays < $desiredgap * (1 - $thinning_fuzziness ) ){
+                    &$deleteme($bo, 'gap too small');
+                    next;
+                }
+
+                # If this is a complete backup, and the gap is large enough, we are sure to keep it
+                if( (! $bo->incomplete ) && $gapindays >= $desiredgap ){
+                    &$keepme($bo, 'is complete');
+                    next;
+                }
+
+                # Do a look-ahead to find a complete backup close to the desired gap
+                my $foundcomplete = undef;
+                my $gapdiff = $desiredgap * 2; # a large number
+                for(my $j=$i; $j<scalar(@backups_chron); $j++){
+                    my $lbo = $backups_chron[$j];
+                    warn "  Look-ahead: " . $lbo->filename . "\n" if $opt{verbose} && $opt{verbose} > 1;
+
+                    # Stop if we get to a new thinning section
+                    if(&$desiredgap_from_age( $lbo->ageindays ) != $desiredgap){
+                        warn "    next section reached\n" if $opt{verbose} && $opt{verbose} > 1;
+                        last;
+                    }
+
+                    my $lgapindays = ($lbo->time - $prevtime) / 60 / 60 / 24;
+
+                    # Stop if we have looked ahead more than the fuzziness
+                    if($lgapindays > $desiredgap * (1 + $thinning_fuzziness)){
+                        warn "     fuzziness limit reached '$lgapindays'\n" if $opt{verbose} && $opt{verbose} > 1;
+                        last;
+                    }
+
+                    # We're not interested in incomplete backups
+                    if($lbo->incomplete){
+                        warn "    incomplete\n" if $opt{verbose} && $opt{verbose} > 1;
+                        next;
+                    }
+
+                    my $lgapdiff = abs($lgapindays - $desiredgap);
+                    warn "    diff: '$lgapdiff'\n" if $opt{verbose} && $opt{verbose} > 1;
+                    if($gapdiff > $lgapdiff){
+                        warn "    SAVING\n" if $opt{verbose} && $opt{verbose} > 1;
+                        $foundcomplete = $j;
+                        $gapdiff = $lgapdiff;
+                    }
+                }
+
+                # No complete backup near us; fall back to old logic
+                unless(defined $foundcomplete){
+                   if( $gapindays >= $desiredgap ){
+                       &$keepme($bo, 'no complete near');
+                   }
+                   else {
+                       &$deleteme($bo, 'no complete near');
+                   }
+                   next;
+                }
+
+                # We found a complete backup near
+                # Delete all backups up to the one found
+                for(my $j=$i; $j<$foundcomplete; $j++){
+                    &$deleteme($backups_chron[$j], 'fuzzy search');
+                }
+                # Keep the backup found
+                $i = $foundcomplete; # Jump ahead
+                &$keepme($backups_chron[$foundcomplete], 'fuzzy search');
+
+            }
+
+            if($opt{verbose}) {
+                &$keepme($latest_bo, 'last complete');
+                foreach my $bo (@latest_incomplete_bobjs){
+                    &$keepme($bo, 'recent incomplete');
                 }
             }
+
         }
         else{
             my @b = reverse sort @{ $backups{$source} };
