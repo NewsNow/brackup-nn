@@ -140,12 +140,18 @@ sub backup {
                                              '.' . basename($backup_file) . 'XXXXX',
                                              DIR => dirname($backup_file),
         );
-        if (! @gpg_rcpts) {
-            if (eval { require IO::Compress::Gzip }) {
-                close $metafh;
-                $metafh = IO::Compress::Gzip->new($meta_filename)
-                    or die "Cannot open tempfile with IO::Compress::Gzip: $IO::Compress::Gzip::GzipError";
-            }
+
+        # Always compress metafile when Gzip available, even when encrypting.
+        # Although GPG compresses the data it encrypts, pre-compressing the data carries little or no
+        # overhead and ensures that local unencrypted copies of the metafiles are always compressed,
+        # after generation by brackup or following retrieval from the target.
+        # Previously only local copies of metafiles stored to an unencrypted target would be compressed,
+        # which was inconsistent and meant local unencrypted copies of metafiles could occupy excessive
+        # amounts of disk space.
+        if (eval { require IO::Compress::Gzip }) {
+            close $metafh;
+            $metafh = IO::Compress::Gzip->new($meta_filename)
+                or die "Cannot open tempfile with IO::Compress::Gzip: $IO::Compress::Gzip::GzipError";
         }
         print $metafh $self->backup_header;
     }
