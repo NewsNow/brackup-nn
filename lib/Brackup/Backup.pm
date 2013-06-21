@@ -153,7 +153,7 @@ sub backup {
             $metafh = IO::Compress::Gzip->new($meta_filename)
                 or die "Cannot open tempfile with IO::Compress::Gzip: $IO::Compress::Gzip::GzipError";
         }
-        print $metafh $self->backup_header;
+        print $metafh $self->backup_header($n_files);
     }
 
     my $cur_file; # current (last seen) file
@@ -526,6 +526,8 @@ sub backup_time_str {
 
 sub backup_header {
     my $self = shift;
+    my $files = shift;
+
     my $ret = "";
     my $now = $self->backup_time;
     $ret .= "BackupTime: " . $now . " (" . $self->backup_time_str . ")\n";
@@ -549,6 +551,7 @@ sub backup_header {
     $ret .= "UIDMap: " . $self->uid_map . "\n";
     $ret .= "GIDMap: " . $self->gid_map . "\n";
     $ret .= "GPG-Recipient: $_\n" for $self->{root}->gpg_rcpts;
+    $ret .= "FileCount: $files\n";
     $ret .= "\n";
     return $ret;
 }
