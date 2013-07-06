@@ -66,6 +66,11 @@ prune operation to only delete backup files from the given I<source>.
 
 =item --interactive
 
+=item --progress|-p
+
+To be used in conjunction with the I<fsck --automatic> command, displays the progress meter
+when loading and analysing the target metafiles. The progress meter is displayed by default
+when in non-automatic (interactive) mode.
 To be used in combination with the I<fsck> command. Runs interactively,
 requiring an explicit confirmation before deleting chunks that have been
 garbage collected. Implies --verbose.
@@ -153,7 +158,7 @@ my $opt_execute;
 my $opt_dryrun;
 my $opt_interactive;
 my $opt_source;
-my ($opt_nogpg, $opt_skipgc, $opt_forcegc, $opt_ignore_no_meta, $opt_allow_new_inv);
+my ($opt_nogpg, $opt_skipgc, $opt_forcegc, $opt_ignore_no_meta, $opt_allow_new_inv, $opt_progress);
 usage() unless
     GetOptions(
                'verbose+'       => \$opt_verbose,
@@ -170,7 +175,8 @@ usage() unless
                'skip-gc'        => \$opt_skipgc,
                'force-gc'       => \$opt_forcegc,
                'ignore-no-metafiles' => \$opt_ignore_no_meta,
-               'allow-new-inv' => \$opt_allow_new_inv
+               'allow-new-inv'  => \$opt_allow_new_inv,
+               'progress|p'     => \$opt_progress
                );
 
 if($opt_execute){

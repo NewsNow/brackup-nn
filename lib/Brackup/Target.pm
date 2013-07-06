@@ -543,9 +543,9 @@ sub item_in_backup {
     my $slot = shift;
 
     my ($head, $tail, $format, $log);
-    if($opt->{verbose}){
+    if($opt->{progress}){
         ($head, $tail) = $self->item_in_backup_progress($slot);
-        $format = "[%3d%%] (%8d) ";
+        $format = "[%3d%%] (%8d/%8d) ";
         $log = $head . sprintf "    * Backup [%3d/%3d] (%d) ", $count, $backups, $slot;
     }
          
@@ -553,19 +553,27 @@ sub item_in_backup {
          
     my $size = (-s $localfile);
          
-    my $is_header = 1;
     my $t_log = time;
-    while (my $it = $parser->readline) {
-        if( $opt->{verbose} && (time - $t_log) >= 1 ) {
-            print STDERR $log . sprintf($format, tell($parser->{fh}) / $size * 100, $parser->{linenum}) . $filename . $tail;
+    
+    my $it = $parser->readline;
+    my $filecount = &$callback($it, 1, $localfile);
+    
+    my $fileno = 0;
+    for(my $fileno = 0; my $it = $parser->readline; $fileno++) {
+        if( $opt->{progress} && (time - $t_log) >= 1 ) {
+            if($filecount) {
+                print STDERR $log . sprintf($format, $fileno / $filecount * 100, $fileno, $filecount) . $filename . $tail;
+            }
+            else {
+                print STDERR $log . sprintf($format, tell($parser->{fh}) / $size * 100, $parser->{linenum}) . $filename . $tail;
+            }
             $t_log = time;
         }
         
-        &$callback($it, $is_header, $localfile);
-        $is_header = 0;
+        &$callback($it, 0, $localfile);
     }
     
-    print STDERR $log . sprintf($format, '100', $parser->{linenum}) . "$filename done." . $tail if $opt->{verbose};
+    print STDERR $log . sprintf($format, '100', $fileno, $filecount) . "$filename done." . $tail if $opt->{progress};
     
     close $parser->{fh};
 }
@@ -579,7 +587,7 @@ sub loop_items_in_backups {
     my $opt = shift;
     ##
     # meta_dir -- if specified, attempt to read local metafiles
-    # verbose
+    # progress
     # no_gpg
     # threads -- number of threads to use, or 0 if threading shouldn't be used at all
 
@@ -601,9 +609,10 @@ sub loop_items_in_backups {
                     undef $slots->[ $threads->{$thr->tid}->{slot} ];
                     unless( $thr->join() ) {
                         # Position cursor below the progress meter lines
-                        print STDERR [$self->item_in_backup_progress($self->{threads})]->[0] if $opt->{verbose};
+                        print STDERR [$self->item_in_backup_progress($self->{threads})]->[0] if $opt->{progress};
+                        my $error = $thr->error();
                         die "Aborting on failure to read metafile '" . $threads->{$thr->tid}->{localfile} . "'" 
-                            . " , error '" . $thr->error() . "'"
+                            . ", error '$error'"
                             ;
                         }
                     delete $threads->{$thr->tid};
@@ -630,14 +639,14 @@ sub loop_items_in_backups {
         # If not available:
         my $fobj;
         unless(-e $localfile) {
-            print STDERR $head . sprintf("    * Backup [%3d/%3d] (%d) [    ] (        ) %s (downloading from target)", $i+1, scalar(@backups), $slot, $backup->filename) . $tail
-                if $opt->{verbose};
+            print STDERR $head . sprintf("    * Backup [%3d/%3d] (%d) [    ] (        /        ) %s (downloading from target)", $i+1, scalar(@backups), $slot, $backup->filename) . $tail
+                if $opt->{progress};
               
             ($localfile, $fobj) = $self->get_and_decrypt_backup($backup->filename, $opt);
         }
         
-        print STDERR $head . sprintf("    * Backup [%3d/%3d] (%d) [    ] (        ) %s", $i+1, scalar(@backups), $slot, $backup->filename) . $tail
-            if $opt->{verbose};
+        print STDERR $head . sprintf("    * Backup [%3d/%3d] (%d) [    ] (        /        ) %s", $i+1, scalar(@backups), $slot, $backup->filename) . $tail
+            if $opt->{progress};
 
         if($self->{threads}) {
             my $thread = threads->create(
@@ -668,7 +677,7 @@ sub loop_items_in_backups {
         foreach my $thr (threads->list()) {
             unless( $thr->join() ) {
                 # Position cursor below the progress meter lines
-                print STDERR [$self->item_in_backup_progress($self->{threads})]->[0] if $opt->{verbose};
+                print STDERR [$self->item_in_backup_progress($self->{threads})]->[0] if $opt->{progress};
                 die "Aborting on failure to read metafile '" . $threads->{$thr->tid}->{localfile} . "'" 
                    . " , error '" . $thr->error() . "'"
                    ;
@@ -676,7 +685,8 @@ sub loop_items_in_backups {
         }
     }
     
-    print STDERR ("\n" x (@$slots)) . "Finished.\n";
+    print STDERR ("\n" x (@$slots)) if $opt->{progress};
+    warn "    * Finished loading and analysing metafiles.\n";
     
     return scalar(@backups);
 }
@@ -738,7 +748,7 @@ sub fsck {
 
         if($is_header){
             $gpg_rec = $item->{'GPG-Recipient'};
-            return;
+            return $item->{'FileCount'};
         }
 
         return unless $item->{Chunks}; # skip non-file entries
