@@ -170,6 +170,12 @@ sub chunks {
     die "ERROR: chunks not implemented in sub-class $self";
 }
 
+# returns a hash of chunks, keyed on name, value indicating chunk size
+sub chunks_with_length {
+    my ($self) = @_;
+    die "ERROR: chunks not implemented in sub-class $self";
+}
+
 sub inventory_db {
     my $self = shift;
     return $self->{inv_db};
