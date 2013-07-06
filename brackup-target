@@ -56,24 +56,25 @@ Can be specified multiple times to increase the level of verbosity.
 
 =item --keep-backups
 
-To be used in combination with the I<prune> command. This overrides the
+To be used in conjunction with the I<prune> command. This overrides the
 I<keep_backups> option specified in the configuration file.
 
 =item --source <source>
 
-To be used in combination with the I<prune> command. This restricts the
+To be used in conjunction with the I<prune> command. This restricts the
 prune operation to only delete backup files from the given I<source>.
 
-=item --interactive
+=item --automatic|-a
+
+To be used in conjunction with the I<fsck --execute> command. Runs fsck non-interactively,
+instead of requiring an explicit confirmation before deleting chunks that have been
+garbage collected.
 
 =item --progress|-p
 
 To be used in conjunction with the I<fsck --automatic> command, displays the progress meter
 when loading and analysing the target metafiles. The progress meter is displayed by default
 when in non-automatic (interactive) mode.
-To be used in combination with the I<fsck> command. Runs interactively,
-requiring an explicit confirmation before deleting chunks that have been
-garbage collected. Implies --verbose.
 
 =item --meta-dir=DIR
 
@@ -95,25 +96,25 @@ instead of attempting to decrypt a metafile loaded from the target.
 
 =item --skip-gc
 
-To be used in combination with the I<fsck> command.
+To be used in conjunction with the I<fsck> command.
 Skip garbage collection altogether.
 
 =item --force-gc
 
-To be used in combination with the I<fsck> command.
+To be used in conjunction with the I<fsck> command.
 Force garbage collection even if inconsistencies were found between the metafiles
 and chunks on the target.
 
 =item --ignore-no-metafiles
 
-To be used in combination with the I<fsck> command.
+To be used in conjunction with the I<fsck> command.
 Continue even if no metafiles were found.
 
 =item --allow-new-inv
 
 By default, brackup-target aborts if it cannot find the inventory database.
-When running brackup for the first time, use --allow-new-inv
-to let it create a new inventory.
+When running brackup for the first time, use --allow-new-inv to let it create
+a new inventory.
 
 =back
 
@@ -156,7 +157,7 @@ my $opt_verbose;
 my $opt_keep_backups;
 my $opt_execute;
 my $opt_dryrun;
-my $opt_interactive;
+my $opt_automatic;
 my $opt_source;
 my ($opt_nogpg, $opt_skipgc, $opt_forcegc, $opt_ignore_no_meta, $opt_allow_new_inv, $opt_progress);
 usage() unless
@@ -167,7 +168,7 @@ usage() unless
                'keep-backups=i' => \$opt_keep_backups,
                'dry-run|n'      => \$opt_dryrun,
                'execute|x'      => \$opt_execute,
-               'interactive'    => \$opt_interactive,
+               'automatic|a'    => \$opt_automatic,
                'source=s'       => \$opt_source,
                'help'           => \$opt_help,
                'meta-dir=s'     => \$meta_dir,
@@ -196,7 +197,6 @@ if ($opt_help) {
     Pod::Usage::pod2usage( -verbose => 1, -exitval => 0 );
     exit 0;
 }
-$opt_verbose ||= 1 if $opt_interactive;
 
 my $config = eval { Brackup::Config->load($config_file) } or
     usage($@);
@@ -309,12 +309,13 @@ sub CMD_fsck {
     return $target->fsck({
         meta_dir => $meta_dir,
         no_gpg => $opt_nogpg,
-        verbose => $opt_verbose,
+        verbose => $opt_verbose || 0,
         dryrun => $opt_dryrun,
-        interactive => $opt_interactive,
+        automatic => $opt_automatic,
         skip_gc => $opt_skipgc,
         force_gc => $opt_forcegc,
-        ignore_no_meta => $opt_ignore_no_meta
+        ignore_no_meta => $opt_ignore_no_meta,
+        progress => (!$opt_automatic) || $opt_progress
     });
 }
 

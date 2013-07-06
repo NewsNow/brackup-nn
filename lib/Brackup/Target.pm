@@ -703,10 +703,9 @@ sub fsck {
     # force_gc
 
     my $label_dryrun = $opts->{dryrun} ? '(DRY RUN)' : '';
-    warn "* Fsck starts... $label_dryrun\n";
+    warn "* Fsck starts $label_dryrun\n";
 
     my $step;
-    my %errors;
     my $gpg_rec;
 
     # STAGE I
@@ -723,23 +722,27 @@ sub fsck {
     # By default, garbage collection will be skipped if any errors are encountered here,
     # which should prevent deleting invalid chunks automatically.
 
-    $step = 'i_meta_target';
-    warn "* I. Checking current data integrity $label_dryrun\n";
+    warn "* Checking current target data integrity\n";
     warn "  * Enumerating chunks on the target\n";
 
     # Get a list of chunks on the target with their size
     my $CHUNKS = $self->chunks_with_length;
+    
+    warn "    * Enumerated " . scalar(keys %$CHUNKS) . " target chunks\n";
 
     # Loop through all backup (meta) files and recreate the inventory into this hash
     my %INV :shared = ();
+    my %META_ERRORS :shared = ();
 
     # Store names of used chunks here
     my %USEDCHUNKS :shared = ();
 
     my @labels = ('p_offset', 'p_length', 'range_or_s_length', 's_digest', 'p_digest');
-
-    warn "  * Enumerating meta-file chunks and checking against the target\n";
+    
+    warn "  * Enumerating metafile chunks and checking against target\n";
+    warn "    * Wherever possible, locally stored metafiles will be used\n" if $opts->{meta_dir};
     my $num_metafiles = $self->loop_items_in_backups (sub {
+
         my $item = shift;
         my $is_header = shift;
         my $backupname = shift;
@@ -791,41 +794,40 @@ sub fsck {
             }
 
             # Check the chunk on the target
+            my $error;
+            if(!exists $CHUNKS->{ $chunkdata{s_digest} }){
+                # MOT - Missing On Target
+                $error = ['MOT', $backupname, 'missing on target', "Line in metafile: '$filechunk'"];
+            }
+            else {
+                my $size_on_target = $CHUNKS->{ $chunkdata{s_digest} };
+                if($chunkdata{s_range}){
+                    unless($size_on_target >= $chunkdata{s_range_to}){
+                    # TSOT - Too Small On Target
+                    $error = ['TSOT', $backupname, 'too small on target to contain range', "Line in metafile: '$filechunk'", "Size in metafile: '$chunkdata{s_length}'", "Size on target: '$size_on_target'"];
+                    }
+                }
+                else{
+                    unless($size_on_target == $chunkdata{s_length}){
+                        # WSOT - Wrong Size On Target
+                        $error = ['WSOT', $backupname, 'has wrong size on the target', "Line in metafile: '$filechunk'", "Size in metafile: '$chunkdata{s_length}'\n - Size on target: '$size_on_target'"];
+                    }
+                }
+            }
 
-            unless(exists $CHUNKS->{ $chunkdata{s_digest} }){
-                warn "    * Chunk '$chunkdata{s_digest}' referred to in metafile '$backupname' is missing from the target!\n" if $opts->{verbose};
-                $errors{$step}++;
-                warn "      - This chunk will be disregarded\n" if $opts->{verbose};
+            if($error) {
+                # FIXME: Potential race condition - locking needed?
+                if( ! exists $META_ERRORS{$chunkdata{s_digest}} ) {
+                    $META_ERRORS{$chunkdata{s_digest}} = shared_clone([$error]);
+                }
+                else {
+                    push( @{$META_ERRORS{$chunkdata{s_digest}}}, shared_clone($error) );
+                }
                 next;
             }
-
-            my $size_on_target = $CHUNKS->{ $chunkdata{s_digest} };
-            if($chunkdata{s_range}){
-                unless($size_on_target >= $chunkdata{s_range_to}){
-                    if( $opts->{verbose} ){
-                        warn "    * Chunk '$chunkdata{s_digest}' referred to in metafile '$backupname' is too small on target to contain range!\n";
-                        warn "      - Line in metafile: '$filechunk'\n";
-                        warn "      - Size in metafile: '$chunkdata{s_length}'\n - Size on target: '$size_on_target'\n";
-                    }
-                    $errors{$step}++;
-                    warn "      - This chunk will be disregarded\n" if $opts->{verbose};
-                    next;
-                }
-            }else{
-                unless($size_on_target == $chunkdata{s_length}){
-                    if( $opts->{verbose} ){
-                        warn "    * Chunk '$chunkdata{s_digest}' referred to in metafile '$backupname' has the wrong size on the target!\n";
-                        warn "      - Line in metafile: '$filechunk'\n";
-                        warn "      - Size in metafile: '$chunkdata{s_length}'\n - Size on target: '$size_on_target'\n";
-                    }
-                    $errors{$step}++;
-                    warn "      - This chunk will be disregarded\n" if $opts->{verbose};
-                    next;
-                }
-            }
-
-            # This chunk is used
-            $USEDCHUNKS{ $chunkdata{s_digest} } = 1;
+              
+            # This target chunk is referenced, exists, passes validity checks, and so should be kept when garbage collecting
+            $USEDCHUNKS{ $chunkdata{s_digest} }++;
 
             # Create inventory entry in %INV
             # {INVSYNTAX} (search for this label to see where else this syntax is used)
@@ -836,6 +838,7 @@ sub fsck {
             my $db_value = $chunkdata{s_digest} . ' ' . $chunkdata{s_length};
             $db_value .= ' ' . $chunkdata{s_range} if $chunkdata{s_range};
 
+            # FIXME: Report or assert if multiple values exist for this key
             $INV{$db_key} = $db_value;
         }
 
@@ -844,7 +847,35 @@ sub fsck {
         }
 
     }, $opts);
+    
+    warn "    * Analysed $num_metafiles metafiles\n";
 
+    my $num_error_chunks;
+    my $num_chunk_errors;
+    my $meta_error_detail = '';
+    while( my($dig, $errors) = each %META_ERRORS) {
+        $num_error_chunks++;
+        $num_chunk_errors += @$errors;
+        $meta_error_detail .= "      * Chunk '$dig'\n" if $opts->{verbose};
+        if($opts->{verbose} >= 2) {
+            foreach my $error (@$errors) {
+                $meta_error_detail .= "        * Referred to in metafile '$$error[1]' - $$error[2]\n";
+                for(my $i=3; $i < scalar(@$error); $i++) {
+                    $meta_error_detail .= "          - " . $$error[$i] . "\n";
+                }
+            }
+        }       
+    }
+
+    if($num_error_chunks) {
+        warn "    * $num_chunk_errors errors found with $num_error_chunks chunks.\n" . $meta_error_detail;
+        warn "    * These issues cannot be fixed, so consider deleting the affected backups\n";
+    }   
+    else {
+        warn "    * Found no errors: all metafile chunks found on target\n";
+        warn "  * Metafiles are consistent with target\n";
+    }
+    
     # Abort if we haven't managed to collect any data because we haven't found any metafiles.
     # This can be due to a misconfiguration; for example, the naming prefix is wrong.
     if( (!$num_metafiles) && (!$opts->{ignore_no_meta}) ){
@@ -855,100 +886,186 @@ sub fsck {
     # FUTURE DATA INTEGRITY
     # We check the inventory database. Any errors here affect the integrity of future backups.
     # Currently, the inventory is compared to the temporary inventory constructed during stage one in both directions.
-    # Missing entries are added, and superfluous entries are deleted.
+    # Missing entries are added, and superfluous entries are (or may optionally be) deleted.
 
-    $step = 'ii_inv';
-    warn "* II. Comparing the local inventory to the data collected $label_dryrun\n";
+    warn "* Checking local inventory to ensure future target integrity\n";
+    warn "  * Comparing local inventory with valid metafile chunks\n";
 
     my $label_curval = 'Description in inventory:';
     my $label_bkpval = 'Description from target :';
 
+    my %INV_ERRORS = ('MM' => 0, 'MOT' => 0, 'TSOT' => 0, 'WSOT' => 0, 'URM1' => 0, 'URM2' => 0, 'MIE' => 0);
+    
+    my $inv_error_detail = '';
+    my $inv_error_detail_urm1 = '';
+    
+    my %INV_UNUSED_TCHUNKS;
     while (my ($key, $curval) = $self->inventory_db->each) {
         my $bkpval = $INV{$key};
-        if($bkpval){
+         
+        # If referenced by metafiles, valid and on target
+        if($bkpval) {
 
-            # WARNING %INV is destroyed in this process
-            delete $INV{$key};
-
-            unless($curval eq $bkpval){
-                warn "  * Mismatch between inventory and target for chunk '$key'\n" if $opts->{verbose};
-                warn "    - $label_curval '$curval'\n - $label_bkpval '$bkpval'\n" if $opts->{verbose} && $opts->{verbose} >= 2;
-                $errors{$step}++;
-                unless($opts->{dryrun}){
-                    warn "    - Deleting from inventory to force re-upload\n" if $opts->{verbose};
-                    $self->inventory_db->delete($key);
+            if($curval eq $bkpval) {
+                # %INV is destroyed in this process, when the local inventory record for $key is consistent.
+                # Only inconsistent entries will remain in %INV, which will be fixed up in the next stage.
+                delete $INV{$key};
+            }
+            else {
+                  
+                # Any issue found in the inventory here will be fixed when we 
+                # check the inventory for missing or incorrect metafile chunk entries
+                $INV_ERRORS{MM}++;
+                $inv_error_detail .=  "    * Inventory source chunk '$key' value doesn't match expected value - updating inventory $label_dryrun\n" if $opts->{verbose};
+                $inv_error_detail .=  "      - $label_curval '$curval'\n - $label_bkpval '$bkpval'\n" if $opts->{verbose} >= 2;
+                  
+                $self->inventory_db->set($key, $bkpval) unless $opts->{dryrun};
+                  
+                # %INV is destroyed in this process, when the local inventory record for $key is consistent.
+                # Only inconsistent entries will remain in %INV, which will be fixed up in the next stage.
+                delete $INV{$key};
+            }
+        }
+        else {
+            # {INVSYNTAX}
+            my $curval_s_digest = [split(' ',$curval)]->[0];
+            if( my $code = $META_ERRORS{$curval_s_digest} ) {
+                $INV_ERRORS{$code}++;
+                $inv_error_detail .=  "    * Inventory source chunk '$key' referenced by metafiles but target chunk missing/invalid on target (code '$code') - deleting to allow re-upload $label_dryrun\n" if $opts->{verbose};
+                $inv_error_detail .=  "      - $label_curval '$curval'\n" if $opts->{verbose} >= 2;
+                $inv_error_detail .=  "      - $label_curval s_digest '$curval_s_digest', META_ERRORS{s_digest} = '$META_ERRORS{$curval_s_digest}'\n" if $opts->{verbose};
+                 
+                $self->inventory_db->delete($key) unless $opts->{dryrun};
+            }
+            else {
+                if( $CHUNKS->{$curval_s_digest} ) {
+                    # URM1 = Unreferenced by Metafile case 1 (stored chunk digest exists on target)
+                    $INV_ERRORS{URM1}++;
+                     
+                    # Target chunk may be either unused, or may be a composite chunk referenced elsewhere in the metafiles by some other source chunk.
+                     
+                    # FIXME:
+                    # Deleting these items from inventory, and subsequently garbage collecting the corresponding target chunks
+                    # is an optimisation that legitimately may or may not be performed without affecting target integrity,
+                    # assuming the inventory items adequately validate against the target (by size, range, etc).
+                    #
+                    $inv_error_detail_urm1 .=  "    * Inventory source chunk '$key' not referenced by metafiles but target chunk still present" .
+                      ($opts->{skip_gc} ? ' - ignoring' : " - deleting $label_dryrun\n") if $opts->{verbose};
+                    $inv_error_detail_urm1 .=  "      - $label_curval '$curval'\n" if $opts->{verbose} >= 2;
+                    $inv_error_detail_urm1 .=  "      - $label_curval s_digest '$curval_s_digest', USEDCHUNKS=" . exists($USEDCHUNKS{$curval_s_digest}) . "\n" if $opts->{verbose} >= 2;
+                    
+                    # Keep count of unused target chunks - should be <= count of orphans found later
+                    # (there may exist orphan chunks on the target that are missing from the inventory)
+                    
+                    # FIXME: Is the condition necessary? Doesn't exists($USEDCHUNKS{$curval_s_digest}) => $INV{$key} => $bkpval true?
+                    $INV_UNUSED_TCHUNKS{$curval_s_digest}++ if !exists($USEDCHUNKS{$curval_s_digest});
+                        
+                    $self->inventory_db->delete($key) unless $opts->{dryrun} || $opts->{skip_gc};
+                }
+                else {
+                    # URM2 = Unreferenced by Metafile case 2
+                    $INV_ERRORS{URM2}++;
+                    $inv_error_detail .=  "    * Inventory source chunk '$key' neither referenced by metafiles nor found on target - deleting $label_dryrun\n" if $opts->{verbose};
+                    $inv_error_detail .=  "      - $label_curval '$curval'\n" if $opts->{verbose} >= 2;
+                    
+                    $self->inventory_db->delete($key) unless $opts->{dryrun};
                 }
             }
         }
-        else{
-            warn "  * Chunk '$key' in inventory is missing (referenced by metafiles but missing on target)"
-                . " or unused (not referenced by metafiles)\n" if $opts->{verbose};
-            warn "    - $label_curval '$curval'\n" if $opts->{verbose} && $opts->{verbose} >= 2;
-
-            # The entry in the inventory here might refer to a valid chunk in the target, in which case
-            # this is not a serious error. However, to ensure this, we would need to check if the chunk
-            # exists in the target, and to compare the size stored in the inventory to that reported by the target.
-
-            $errors{$step}++;
-            unless($opts->{dryrun}){
-                warn "    - Deleting from inventory\n" if $opts->{verbose};
-                $self->inventory_db->delete($key);
-            }
-        }
     }
 
-    # Add to the inventory any valid items found in the metafiles that were not found in the inventory.
-    foreach my $key (keys %INV){
-        my $bkpval = $INV{$key};
-        warn "  * Chunk '$key' in target metafiles is missing from inventory\n" if $opts->{verbose};
-        warn "    - $label_bkpval '$bkpval'\n" if $opts->{verbose} && $opts->{verbose} >= 2;
-        $errors{$step}++;
+     warn sprintf "    * " . ($opts->{skip_gc} ? 'Ignoring' : 'Deleting') . " %d inventory source chunk key(s) not referenced by metafiles but for which " . scalar(keys %INV_UNUSED_TCHUNKS) . " target chunks still exist $label_dryrun\n", $INV_ERRORS{URM1} if $INV_ERRORS{URM1};
+     warn $inv_error_detail_urm1 if $inv_error_detail_urm1;
+    
+     my $inv_error_keys = 0;
+     $inv_error_keys += $INV_ERRORS{$_} foreach qw( MM MOT TSOT WSOT URM2 );
+     if( $inv_error_keys ) {
+         warn sprintf "    * Deleting %d inventory source chunk key(s) for which target chunk isn't as expected $label_dryrun\n", $INV_ERRORS{MM} if $INV_ERRORS{MM};
+         warn sprintf "    * Deleting %d inventory source chunk key(s) referenced by metafiles but missing on target $label_dryrun\n", $INV_ERRORS{MOT} if $INV_ERRORS{MOT};
+         warn sprintf "    * Deleting %d inventory source chunk key(s) referenced by metafiles but too small on target $label_dryrun\n", $INV_ERRORS{TSOT} if $INV_ERRORS{TSOT};
+         warn sprintf "    * Deleting %d inventory source chunk key(s) referenced by metafiles but wrong size on target $label_dryrun\n", $INV_ERRORS{WSOT} if $INV_ERRORS{WSOT};
+         warn sprintf "    * Deleting %d inventory source chunk key(s) neither referenced by metafiles nor found on target $label_dryrun\n", $INV_ERRORS{URM2} if $INV_ERRORS{URM2};
+         warn $inv_error_detail if $inv_error_detail;
+     }
+     else {
+         warn "    * Inventory has no superfluous or conflicting entries (as compared to metafiles and target)\n";
+     }
+    
+     warn "  * Checking inventory for missing or incorrect metafile chunk entries\n";
+     # MIE - Missing Inventory Entry
+     # Add to the inventory any valid items found in the metafiles that were not found in the inventory
+     # or that were found to be invalid in the inventory
+     while( my($key, $bkpval) = each %INV ) {
+        warn "    * Metafile chunk '$key' missing or incorrect in inventory, updating. $label_dryrun\n" if $opts->{verbose};
+        warn "      - $label_bkpval '$bkpval'\n" if $opts->{verbose} && $opts->{verbose} >= 2;
+        $INV_ERRORS{MIE}++;
         unless($opts->{dryrun}){
-            warn "    - Adding to inventory\n" if $opts->{verbose};
             $self->inventory_db->set($key, $bkpval);
         }
     }
-
+    
+    if($INV_ERRORS{MIE}) {
+        warn "    * Added $INV_ERRORS{MIE} metafile chunk(s) to the local inventory $label_dryrun\n";
+    }
+    else {
+        warn "    * Found no metafile chunks missing from local inventory\n";
+    }
+    
+    if( $inv_error_keys + $INV_ERRORS{MIE} == 0) {
+        warn "  * Inventory consistent!\n";
+    }
+    else {
+        if($opts->{dryrun}) {
+            warn "  * Inventory not yet consistent\n";
+        }
+        else {
+            warn "  * Issues found but fixed\n";
+            warn "  * Inventory consistent!\n";
+        }
+    }
+    
     # STAGE III
     # GARBAGE COLLECTION
     # We use %USEDCHUNKS generated during stage one to delete chunks
     # from both the inventory and the target that are not referenced by
     # any of the metafiles.
 
-    $step = 'iii_gc';
-    warn "* III. Garbage collection $label_dryrun\n";
-    while(1){
+    warn "* Garbage collection\n";
+    my $orphans;
+    while(1) {
 
-        if( $opts->{skip_gc} ){
+        if( $opts->{skip_gc} ) {
             warn "  - Skipped (--skip-gc was used)\n";
             last;
         }
 
-        # It is not safe to continue if errors have been encountered in step 1,
-        # as we might be deleting chunks that are in fact used or could be useful.
-        if( $errors{i_meta_target} && ! $opts->{force_gc} ){
-            warn "  * It is unsafe to garbage collect as issues have been encountered during step I. Use --force-gc to override this.\n";
+        # If errors have been encountered in step 1 - in other words chunks in the metafile
+        # could not be found or weren't found to be valid on the target - then it would be rash
+        # to automatically garbage collect unused target chunks particularly when this scenario
+        # might arise from running fsck for a target against the wrong set of metafiles.
+        if( $num_error_chunks && ! $opts->{force_gc} ) {
+            warn "  * It is unsafe to garbage collect as some metafile target chunks were invalid or not found on the target. Use --force-gc to override this.\n";
             last;
         }
 
-
         # Get orphaned chunks
         # WARNING %$CHUNKS is destroyed in this process
-        foreach my $k (keys %USEDCHUNKS){
+        while( my($k, $v) = each %USEDCHUNKS ) {
             die "ASSERT: chunk marked as used should exist" unless exists $CHUNKS->{$k};
             delete $CHUNKS->{$k};
         }
 
-        $errors{$step} = scalar(keys %$CHUNKS);
+        $orphans = scalar(keys %$CHUNKS);
 
+        warn "  * Deleting $orphans orphan chunks $label_dryrun\n";
+         
         # No orphaned chunks?
-        last unless $errors{$step};
+        last unless $orphans;
 
         # On very verbose, print chunks to be deleted
-        if( $opts->{verbose} && $opts->{verbose} >= 2 ){
-            warn "  * Orphaned chunks:\n";
-            foreach my $k (keys %$CHUNKS){
-                warn "    $k Size: $CHUNKS->{$k}\n";
+        if( $opts->{verbose} ){
+            while( my($k, $v) = each %$CHUNKS ) {
+                warn "    * $k Size: $CHUNKS->{$k}\n";
             }
         }
 
@@ -957,29 +1074,33 @@ sub fsck {
 
         # Confirmation
         my $confirm = 'y';
-        if($opts->{interactive}){
-            printf "  * Run gc, removing %d orphaned chunks? [y/N] ", scalar $errors{$step};
+        unless($opts->{automatic}){
+            printf "  * Run gc, removing %d orphaned chunks? [y/N] ", $orphans;
             $confirm = <>;
         }
         last unless (lc substr($confirm,0,1) eq 'y');
-
-        # Remove orhpaned chunks
-        warn "  * Removing orphaned chunks\n" if $opts->{verbose};
 
         # (1) delete orphaned chunks from inventory and THEN from the target
         my $inventory_db = $self->inventory_db;
         while (my ($k, $v) = $inventory_db->each) {
             $v =~ s/ .*$//;         # strip value back to hash
-            if(exists $CHUNKS->{$v}){
-                $inventory_db->delete($k);
+            if(exists $CHUNKS->{$v}) {
+                    
+                # Unnecessary, as relevant inventory entries will already have been deleted in previous stage
+                # but for avoidance of doubt, delete from local inventory again.
+                $inventory_db->delete($k); 
+                
+                # Delete (or schedule delete) from the target
                 $self->delete_chunk_multi($v);
+                    
+                # Eliminate records from %$CHUNKS as we go, for next stage.
                 delete $CHUNKS->{$v};
             }
         }
 
         # (2) delete chunks not found in the inventory
-        foreach my $v (keys %$CHUNKS){
-            $self->delete_chunk_multi($v);
+        while( my($k, $v) = each %$CHUNKS ) {
+            $self->delete_chunk_multi($k);
         }
 
         last;
@@ -988,35 +1109,15 @@ sub fsck {
     # Execute any queued deletes.
     $self->delete_chunks_multi();
 
-    # Print summary
-    my %explanation = (
-        '_meta_dir'     => "  * Wherever possible, locally stored metafiles have been used.\n",
-        '_no_issues'    => "  * Success: No issues have been encountered.\n",
-        '_all_fixed'    => "    These have all been fixed.\n",
-        '_no_action'    => "    No action has been taken.\n",
-        'i_meta_target' => "  * %d issues found while comparing metafiles to what is on the target.\n    These issues cannot be fixed; please consider deleting the affected backups.\n",
-        'ii_inv'        => "  * %d issues found while comparing the inventory to metafiles and chunks.\n%s",
-        'iii_gc'        => "  * %d issues found while collecting orphaned chunks.\n%s"
-    );
-
-    warn "* SUMMARY $label_dryrun\n";
-    warn $explanation{_meta_dir} if $opts->{meta_dir};
-
-    my $failed = undef;
-
-    foreach my $k (sort keys %errors){
-        next unless $errors{$k}; # skip 0 error counts
-        $failed = 1;
-        warn sprintf( $explanation{$k}, $errors{$k}, $opts->{dryrun} ? $explanation{_no_action} : $explanation{_all_fixed} );
-    }
-
-    warn $explanation{_no_issues} unless $failed;
-
     # Calculate a suitable return code (1=OK; see brackup-target for process return code)
-    return 0 if $errors{i_meta_target}; # Failed: These errors cannot be fixed
-    return 1 unless $failed; # Success: No issues found at all
-    return 1 unless $opts->{dryrun}; # Success: we should have fixed all errors or died
-    return 0; # Failed
+    my $ret =
+      !$num_error_chunks # Fail: These errors cannot be fixed
+      && (!$inv_error_keys || !$opts->{dryrun}) # Fail if these issues were not fixed
+      ;
+    
+     warn "* Fsck finished with code " . ($ret ? 'OK' : 'FAIL') . "\n";
+     
+     return $ret;
 }
 
 1;
