@@ -913,8 +913,6 @@ sub fsck {
             }
             else {
                   
-                # Any issue found in the inventory here will be fixed when we 
-                # check the inventory for missing or incorrect metafile chunk entries
                 $INV_ERRORS{MM}++;
                 $inv_error_detail .=  "    * Inventory source chunk '$key' value doesn't match expected value - updating inventory $label_dryrun\n" if $opts->{verbose};
                 $inv_error_detail .=  "      - $label_curval '$curval'\n - $label_bkpval '$bkpval'\n" if $opts->{verbose} >= 2;
@@ -991,12 +989,11 @@ sub fsck {
          warn "    * Inventory has no superfluous or conflicting entries (as compared to metafiles and target)\n";
      }
     
-     warn "  * Checking inventory for missing or incorrect metafile chunk entries\n";
+     warn "  * Checking inventory for missing metafile chunk entries\n";
      # MIE - Missing Inventory Entry
      # Add to the inventory any valid items found in the metafiles that were not found in the inventory
-     # or that were found to be invalid in the inventory
      while( my($key, $bkpval) = each %INV ) {
-        warn "    * Metafile chunk '$key' missing or incorrect in inventory, updating. $label_dryrun\n" if $opts->{verbose};
+        warn "    * Metafile chunk '$key' missing in inventory, adding. $label_dryrun\n" if $opts->{verbose};
         warn "      - $label_bkpval '$bkpval'\n" if $opts->{verbose} && $opts->{verbose} >= 2;
         $INV_ERRORS{MIE}++;
         unless($opts->{dryrun}){
