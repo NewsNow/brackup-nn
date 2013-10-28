@@ -205,6 +205,8 @@ sub usage {
     die "${why}brackup --from=[source_name] --to=[target_name] [--output=<backup_metafile.brackup>]\nbrackup --help\n";
 }
 
+$|=1;
+
 my $root = eval { $config->load_root($src_name); } or
     usage($@);
 
