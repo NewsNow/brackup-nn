@@ -45,8 +45,8 @@ sub new {
     $self->{prefix} = $confsec->value("aws_prefix") || $self->{access_key_id};
     $self->{location} = $confsec->value("aws_location") || undef;
     $self->{backup_prefix} = $confsec->value("backup_prefix") || undef;
-    $self->{backup_path_prefix} = $confsec->value("backup_path_prefix") || 'backups/';
-    $self->{chunk_path_prefix} = $confsec->value("chunk_path_prefix") || 'chunks/';
+    $self->{backup_path_prefix} = $confsec->value("backup_path_prefix") || ''; # suggested value 'backups/' is no longer here a default, for backwards compatibility.
+    $self->{chunk_path_prefix} = $confsec->value("chunk_path_prefix") || ''; # suggested value 'chunks/' is no longer here a default, for backwards compatibility.
     $self->{multipart_threshold} = $confsec->byte_value("multipart_threshold") || 10*1024*1024;
     $self->{multipart_part_size} = $confsec->byte_value("multipart_part_size") || 10*1024*1024;
     die "multipart_part_size ($self->{multipart_part_size}) smaller than S3 minimum (5MB)\n" if $self->{multipart_part_size} < 5*1024*1024;
