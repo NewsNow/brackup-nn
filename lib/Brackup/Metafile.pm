@@ -49,7 +49,7 @@ sub preload {
     my $self = shift;
     
     my $data;
-    my $bytes = read($self->{fh}, $data, 1048576, 0);
+    my $bytes = read($self->{fh}, $data, 8*1024, 0);
 
     $self->{'data'} = [ split("\n", $self->{'buffer'} . $data, -1) ];
     
