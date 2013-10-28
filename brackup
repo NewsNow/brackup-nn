@@ -233,9 +233,8 @@ if (my ($stats, $backup_file, $error_returned) = eval { $backup->backup($meta_di
         warn "Backup complete.\n" if $opt_verbose;
     }
 
-    if ($opt_dryrun || $opt_verbose) {
-        $stats->print;
-    }
+    # Always print stats. They're terribly useful.
+    $stats->print;
 
     if (defined $stats_file) {
         if ($stats_file eq '') {
