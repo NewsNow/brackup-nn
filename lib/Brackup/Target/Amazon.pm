@@ -124,14 +124,13 @@ sub new_from_backup_header {
                          _prompt("Your Amazon AWS secret access key? "))
         or die "Need your Amazon secret access key.\n";
     my $prefix        = ($ENV{'AWS_PREFIX'} ||
-                         $header->{AWSPrefix} ||
-                         $confsec->value('aws_prefix'));
+                         $header->{AWSPrefix} || "");
 
     my $self = bless {}, $class;
     $self->{access_key_id}     = $accesskey;
     $self->{sec_access_key_id} = $sec_accesskey;
     $self->{prefix}            = $prefix || $self->{access_key_id};
-    $self->{chunk_path_prefix} = $header->{ChunkPathPrefix} || $confsec->value("chunk_path_prefix");
+    $self->{chunk_path_prefix} = $header->{ChunkPathPrefix} || "";
     $self->_common_s3_init;
     return $self;
 }
