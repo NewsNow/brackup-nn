@@ -110,14 +110,22 @@ sub _restore_item {
     die "Unknown filetype: type=$type, file: $path_escaped" unless $type =~ /^[ldfpbcs]$/;
     
     if ($self->{prefix}) {
+         
+        # Skip unless path is prefix or begins with prefix/
         return undef unless $path =~ m/^\Q$self->{prefix}\E(?:\/|$)/;
-        # if non-dir and $path eq $self->{prefix}, strip all but last component
+        
+        ###
+        # Translate source $path into destination path $full (and $full_escaped, for printing).
+         
+        # If non-directory, and $path begins with prefix or prefix/, then strip all but last component.
         if ($type ne 'd' && $path =~ m/^\Q$self->{prefix}\E\/?$/) {
             if (my ($leading_prefix) = ($self->{prefix} =~ m/^(.*\/)[^\/]+\/?$/)) {
                 $path =~ s/^\Q$leading_prefix\E//;
                 $path_escaped_stripped =~ s/^\Q$leading_prefix\E//;
             }
         }
+         
+        # If directory, strip prefix or prefix/
         else {
             $path =~ s/^\Q$self->{prefix}\E\/?//;
             $path_escaped_stripped =~ s/^\Q$self->{prefix}\E\/?//;
