@@ -368,17 +368,44 @@ sub _exec_statinfo_updates {
 }
 
 # Check if $self->{conflict} setting allows us to skip this item
+# or if we should die
 sub _can_skip {
-    my ($self, $full, $it) = @_;
+    my ($self, $full, $it, $type) = @_;
 
-    if ($self->{conflict} eq 'skip') {
+    if ($self->{conflict} eq 'abort') {
+        die "$type $full ($it->{Path}) already exists.\n";
+    }
+    elsif ($self->{conflict} eq 'skip') {
         return 1;
-    } elsif ($self->{conflict} eq 'overwrite') {
+    }
+    elsif ($self->{conflict} eq 'overwrite') {
         return 0;
-    } elsif ($self->{conflict} eq 'update') {
+    }
+    elsif ($self->{conflict} eq 'update') {
         my $st = stat $full
             or die "stat on '$full' failed: $!\n";
         return 1 if defined $it->{Mtime} && $st->mtime >= $it->{Mtime};
+    }
+    # overwrite-unless-matching-size
+    elsif ($self->{conflict} eq 'correct-stat-only') {
+        my $st = stat $full
+            or die "stat on '$full' failed: $!\n";
+         
+        # Update file if size is different
+        return 0 if defined $it->{Size} && $st->size != $it->{Size};
+         
+        # Otherwise just update stat info unless it's a symlink
+        $self->_update_statinfo($full, $it); # unless $type eq 'Link' || (defined($it->{Type}) && $it->{Type} eq 'l');
+        return 1;
+    }
+    # overwrite-unless-matching-time-and-size
+    elsif ($self->{conflict} eq 'correct') {
+        my $st = stat $full
+            or die "stat on '$full' failed: $!\n";
+         
+        # Update file if mtime or size is different
+        return 0 if (defined $it->{Mtime} && $st->mtime != $it->{Mtime}) || (defined $it->{Size} && $st->size != $it->{Size});
+        return 1;
     }
     else {
         die "Invalid '--conflict' setting '$self->{conflict}'\n";
@@ -390,8 +417,8 @@ sub _restore_directory {
     my ($self, $full, $it) = @_;
 
     # Apply conflict checks to directories
-    if (-d $full && $self->{conflict} ne 'abort') {
-        return if $self->_can_skip($full, $it);
+    if (-d $full) { # && $self->{conflict} ne 'abort') {
+        return if $self->_can_skip($full, $it, 'Directory');
     }
 
     unless (-d $full) {
@@ -406,9 +433,7 @@ sub _restore_link {
     my ($self, $full, $it) = @_;
 
     if (-e $full) {
-        die "Link $full ($it->{Path}) already exists.  Aborting."
-            if $self->{conflict} eq 'abort';
-        return if $self->_can_skip($full, $it);
+        return if $self->_can_skip($full, $it, 'Link');
 
         # Can't overwrite symlinks, so unlink explicitly if we're not skipping
         unlink $full
@@ -418,15 +443,15 @@ sub _restore_link {
     my $link = unprintable($it->{Link});
     symlink $link, $full or
         die "Failed to link $full: $!";
+    
+    $self->_update_statinfo($full, $it);
 }
 
 sub _restore_fifo {
     my ($self, $full, $it) = @_;
 
     if (-e $full) {
-        die "Named pipe/fifo $full ($it->{Path}) already exists.  Aborting."
-            if $self->{conflict} eq 'abort';
-        return if $self->_can_skip($full, $it);
+        return if $self->_can_skip($full, $it, 'Fifo');
 
         # Can't overwrite fifos, so unlink explicitly if we're not skipping
         unlink $full
@@ -466,7 +491,7 @@ sub _restore_files {
 
     Brackup::ProcManager->start_child('restore', $self, 'restore_daemon_handler', [$meta, $it_array]);
     
-     return undef;
+    return undef;
 }
 
 sub restore_daemon_handler {
@@ -521,9 +546,7 @@ sub __restore_file {
     my ($self, $full, $it) = @_;
 
     if (-e $full && -s $full) {
-        die "File $full ($it->{Path}) already exists.  Aborting."
-            if $self->{conflict} eq 'abort';
-        return if $self->_can_skip($full, $it);
+        return if $self->_can_skip($full, $it, 'File');
     }
     # If $full exists, unlink (in case readonly when overwriting would fail)
     unlink $full if -e $full;

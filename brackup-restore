@@ -64,12 +64,16 @@ errors and reporting them at the end of the restore.
 
 Default: abort.
 
-=item --conflict=abort|skip|overwrite|update
+=item --conflict=abort|skip|overwrite|update|correct|correct-stat-only
 
 How to handle files that already exist (with size > zero bytes). 
 'skip' means don't restore, keeping the existing file. 'overwrite'
 means always restore, replacing the existing file. 'update' means
-overwrite iff the file we are restoring is newer than the existing one.
+overwrite iff the file we are restoring is newer than the existing one;
+'correct' means overwrite iff the file we are restoring has different
+modification time or size; 'correct-stat-only' means overwrite if the
+file we are restoring has different file size, but other just correct
+file status (access/modification time), ownership & permissions.
 
 Default: abort.
 
@@ -159,8 +163,8 @@ usage("Restore directory '$restore_dir' isn't a directory") if -e $restore_dir &
 usage("Config file '$config_file' doesn't exist")    if $config_file && ! -f $config_file;
 usage("Invalid --onerror option '$onerror' (not abort|continue)")
     if $onerror !~ m/^(abort|continue)$/;
-usage("Invalid --conflict option '$conflict' (not abort|skip|overwrite|update)")
-    if $conflict !~ m/^(abort|skip|overwrite|update)$/;
+usage("Invalid --conflict option '$conflict' (not abort|skip|overwrite|update|correct-stat-only|correct)")
+    if $conflict !~ m/^(abort|skip|overwrite|update|correct-stat-only|correct)$/;
 $prefix ||= "";  # with -all, "", which means everything
 
 if (! -e $restore_dir) {
