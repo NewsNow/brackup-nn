@@ -90,6 +90,12 @@ Number of processes to use to restore files in parallel.
 Use original UID and GID numbers, without attempting to map
 them to local users and groups.
 
+=item --no-lchown
+
+If the Lchown package is unavailable, an error will be displayed since
+it will not be possible to restore the ownership of symlinks. This option
+inhibits this error, turning it into a warning.
+
 =back
 
 =head1 WARRANTY
@@ -120,7 +126,7 @@ use lib "$Bin/lib";
 use Brackup;
 use Brackup::Util qw(tempfile);
 
-my ($opt_verbose, $meta_file, $opt_help, $restore_dir, $opt_all, $prefix, $config_file, $opt_daemons, $opt_numeric_ids);
+my ($opt_verbose, $meta_file, $opt_help, $restore_dir, $opt_all, $prefix, $config_file, $opt_daemons, $opt_numeric_ids, $opt_no_lchown);
 my $onerror  = 'abort';
 my $conflict = 'abort';
 
@@ -137,6 +143,7 @@ usage() unless
                'config=s'           => \$config_file,
                'threads=s'          => \$opt_daemons,
                'numeric_ids|numeric-ids' => \$opt_numeric_ids,
+               'no-lchown'          => \$opt_no_lchown
                );
 
 if ($opt_help) {
@@ -173,6 +180,7 @@ my $restore = Brackup::Restore->new(
                                     verbose     => $opt_verbose,
                                     daemons     => $opt_daemons,
                                     numeric_ids => $opt_numeric_ids,
+                                    no_lchown   => $opt_no_lchown
                                     );
 
 try {

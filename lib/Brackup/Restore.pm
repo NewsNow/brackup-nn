@@ -45,12 +45,28 @@ sub new {
     $self->{_local_uid_map} = {};  # remote/metafile uid -> local uid
     $self->{_local_gid_map} = {};  # remote/metafile gid -> local gid
 
+    $self->{no_lchown} = delete $opts{no_lchown};
+    
     $self->{prefix} =~ s/\/$// if $self->{prefix};
 
     $self->{_stats_to_run} = [];  # stack (push/pop) of subrefs to reset stat info on
 
     die "Destination directory doesn't exist" unless $self->{to} && -d $self->{to};
     croak("Unknown options: " . join(', ', keys %opts)) if %opts;
+    
+    if (! defined $self->{_lchown}) {
+        no strict 'subs';
+        $self->{_lchown} = eval { require Lchown } && Lchown::LCHOWN_AVAILABLE;
+        
+        if(!$self->{_lchown}) {
+            if($self->{no_lchown}) {
+                warn "Not restoring symlink ownership (LChown is not available)\n";
+            }
+            else {
+                die "Cannot restore symlink ownership (no Lchown module) but --no-lchown option not given\n";
+            }
+        }
+    }
 
     $self->{metafile} = Brackup::DecryptedFile->new($self->{filename});
 
@@ -272,10 +288,6 @@ sub _chown {
     my $gid = defined($it->{GID}) ? $self->_lookup_remote_gid($it->{GID}, $meta) : undef;
 
     if ($type eq 'l') {
-        if (! defined $self->{_lchown}) {
-            no strict 'subs';
-            $self->{_lchown} = eval { require Lchown } && Lchown::LCHOWN_AVAILABLE;
-        }
         if ($self->{_lchown}) {
             Lchown::lchown($uid, -1, $full) if defined $uid;
             Lchown::lchown(-1, $gid, $full) if defined $gid;
