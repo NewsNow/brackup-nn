@@ -377,22 +377,31 @@ sub _can_skip {
     if ($self->{conflict} eq 'abort') {
         die "$type $full ($it->{Path}) already exists.\n";
     }
-    elsif ($self->{conflict} eq 'skip') {
+
+    if ($self->{conflict} eq 'skip') {
         return 1;
     }
-    elsif ($self->{conflict} eq 'overwrite') {
+
+    if ($self->{conflict} eq 'overwrite') {
         return 0;
     }
-    elsif ($self->{conflict} eq 'update') {
-        my $st = stat $full
-            or die "stat on '$full' failed: $!\n";
+
+    # Stat the existing file.
+    my $file = Brackup::File->new( path => $full, noroot => 1 )
+        or die "stat on '$full' failed: $!\n";
+
+    # Overwrite, if existing file is different type to restored file.
+    return 0 if $file->type ne $it->{Type};
+
+    # Save file stat object.
+    my $st = $file->stat;
+
+    if ($self->{conflict} eq 'update') {
         return 1 if defined $it->{Mtime} && $st->mtime >= $it->{Mtime};
     }
+
     # overwrite-unless-matching-size
-    elsif ($self->{conflict} eq 'correct-stat-only') {
-        my $st = stat $full
-            or die "stat on '$full' failed: $!\n";
-         
+    if ($self->{conflict} eq 'correct-stat-only') {
         # Update file if size is different
         return 0 if defined $it->{Size} && $st->size != $it->{Size};
          
@@ -400,19 +409,15 @@ sub _can_skip {
         $self->_update_statinfo($full, $it); # unless $type eq 'Link' || (defined($it->{Type}) && $it->{Type} eq 'l');
         return 1;
     }
+
     # overwrite-unless-matching-time-and-size
-    elsif ($self->{conflict} eq 'correct') {
-        my $st = stat $full
-            or die "stat on '$full' failed: $!\n";
-         
+    if ($self->{conflict} eq 'correct') {
         # Update file if mtime or size is different
         return 0 if (defined $it->{Mtime} && $st->mtime != $it->{Mtime}) || (defined $it->{Size} && $st->size != $it->{Size});
         return 1;
     }
-    else {
-        die "Invalid '--conflict' setting '$self->{conflict}'\n";
-    }
-    return 0;
+
+    die "Invalid '--conflict' setting '$self->{conflict}'\n";
 }
 
 sub _restore_directory {
