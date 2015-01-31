@@ -41,6 +41,7 @@ sub new {
     $self->{verbose}  = delete $opts{verbose};
     $self->{daemons}  = delete $opts{daemons}; # number of processes used to restore files in parallel
 
+    $self->{numeric_ids} = delete $opts{numeric_ids};
     $self->{_local_uid_map} = {};  # remote/metafile uid -> local uid
     $self->{_local_gid_map} = {};  # remote/metafile gid -> local gid
 
@@ -223,6 +224,8 @@ sub restore {
 sub _lookup_remote_uid {
     my ($self, $remote_uid, $meta) = @_;
 
+    return $remote_uid if $self->{numeric_ids};
+    
     return $self->{_local_uid_map}->{$remote_uid}
         if defined $self->{_local_uid_map}->{$remote_uid};
 
@@ -243,6 +246,8 @@ sub _lookup_remote_uid {
 sub _lookup_remote_gid {
     my ($self, $remote_gid, $meta) = @_;
 
+    return $remote_gid if $self->{numeric_ids};
+    
     return $self->{_local_gid_map}->{$remote_gid}
         if defined $self->{_local_gid_map}->{$remote_gid};
 
@@ -263,8 +268,8 @@ sub _lookup_remote_gid {
 sub _chown {
     my ($self, $full, $it, $type, $meta) = @_;
 
-    my $uid = $self->_lookup_remote_uid($it->{UID}, $meta) if $it->{UID};
-    my $gid = $self->_lookup_remote_gid($it->{GID}, $meta) if $it->{GID};
+    my $uid = defined($it->{UID}) ? $self->_lookup_remote_uid($it->{UID}, $meta) : undef;
+    my $gid = defined($it->{GID}) ? $self->_lookup_remote_gid($it->{GID}, $meta) : undef;
 
     if ($type eq 'l') {
         if (! defined $self->{_lchown}) {

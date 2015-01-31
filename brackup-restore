@@ -85,6 +85,11 @@ Show more info during restore.
 
 Number of processes to use to restore files in parallel.
 
+=item --numeric-ids
+
+Use original UID and GID numbers, without attempting to map
+them to local users and groups.
+
 =back
 
 =head1 WARRANTY
@@ -115,7 +120,7 @@ use lib "$Bin/lib";
 use Brackup;
 use Brackup::Util qw(tempfile);
 
-my ($opt_verbose, $meta_file, $opt_help, $restore_dir, $opt_all, $prefix, $config_file, $opt_daemons);
+my ($opt_verbose, $meta_file, $opt_help, $restore_dir, $opt_all, $prefix, $config_file, $opt_daemons, $opt_numeric_ids);
 my $onerror  = 'abort';
 my $conflict = 'abort';
 
@@ -130,7 +135,8 @@ usage() unless
                'onerror|on-error=s' => \$onerror,
                'conflict=s'         => \$conflict,
                'config=s'           => \$config_file,
-               'threads=s'          => \$opt_daemons
+               'threads=s'          => \$opt_daemons,
+               'numeric_ids|numeric-ids' => \$opt_numeric_ids,
                );
 
 if ($opt_help) {
@@ -165,7 +171,8 @@ my $restore = Brackup::Restore->new(
                                     onerror     => $onerror,
                                     conflict    => $conflict,
                                     verbose     => $opt_verbose,
-                                    daemons     => $opt_daemons
+                                    daemons     => $opt_daemons,
+                                    numeric_ids => $opt_numeric_ids,
                                     );
 
 try {
