@@ -190,7 +190,8 @@ sub restore {
             # find dig of first chunk
             ($it->{Chunks} || '') =~ /^(\S+)/;
             my ($offset, $len, $enc_len, $dig) = split(/;/, $1 || '');
-            $it->{fst_dig} = $dig || '';
+            $dig ||= '';
+            $it->{fst_dig} = $dig;
             push @{$files->{$dig}}, $it;
         } elsif($type eq 'd') {
             push @dirs, $it;
