@@ -20,7 +20,8 @@ use warnings;
 use Carp qw(croak);
 use Digest::SHA1;
 use POSIX qw(mkfifo);
-use Fcntl qw(O_RDONLY O_CREAT O_WRONLY O_TRUNC);
+use Unix::Mknod;
+use Fcntl qw(O_RDONLY O_CREAT O_WRONLY O_TRUNC S_IFCHR S_IFBLK);
 use String::Escape qw(unprintable);
 use File::stat;
 use Try::Tiny;
@@ -97,7 +98,7 @@ sub _restore_item {
     my $path = unprintable($it->{Path});
     my $path_escaped = $it->{Path};
     my $path_escaped_stripped = $it->{Path};
-    die "Unknown filetype: type=$type, file: $path_escaped" unless $type =~ /^[ldfp]$/;
+    die "Unknown filetype: type=$type, file: $path_escaped" unless $type =~ /^[ldfpbcs]$/;
     
     if ($self->{prefix}) {
         return undef unless $path =~ m/^\Q$self->{prefix}\E(?:\/|$)/;
@@ -128,7 +129,10 @@ sub _restore_item {
         $self->_restore_link     ($full, $it) if $type eq "l";
         $self->_restore_directory($full, $it) if $type eq "d";
         $self->_restore_fifo     ($full, $it) if $type eq "p";
+        $self->_restore_dev      ($full, $it) if $type eq "b";
+        $self->_restore_dev      ($full, $it) if $type eq "c";
         $self->__restore_file    ($full, $it) if $type eq "f";
+        return undef                          if $type eq "s";
         
         $self->_chown($full, $it, $type, $meta) if $it->{UID} || $it->{GID};
         
@@ -396,6 +400,25 @@ sub _restore_fifo {
     }
 
     mkfifo($full, $it->{Mode}) or die "mkfifo failed: $!";
+
+    $self->_update_statinfo($full, $it);
+}
+
+sub _restore_dev {
+    my ($self, $full, $it) = @_;
+
+    if (-e $full) {
+        return if $self->_can_skip($full, $it, 'Device');
+
+        # Can't overwrite fifos, so unlink explicitly if we're not skipping
+        unlink $full
+            or die "Failed to unlink fifo $full: $!";
+    }
+
+    my @type = split(';', $it->{'Device'});
+    
+    # Returns 0 on success, -1 on failure
+    Unix::Mknod::mknod($full, ($it->{Type} eq 'c' ? S_IFCHR : S_IFBLK) | oct($it->{Mode}), Unix::Mknod::makedev($type[0], $type[1])) && die "mknod failed: $!";
 
     $self->_update_statinfo($full, $it);
 }

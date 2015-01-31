@@ -22,9 +22,10 @@ use strict;
 use warnings;
 use Carp qw(croak);
 use File::stat ();
-use Fcntl qw(S_ISREG S_ISDIR S_ISLNK S_ISFIFO O_RDONLY);
+use Fcntl qw(S_ISREG S_ISDIR S_ISLNK S_ISFIFO S_ISSOCK S_ISBLK S_ISCHR O_RDONLY);
 use Digest::SHA1;
 use String::Escape qw(printable);
+use Unix::Mknod;
 use Brackup::PositionedChunk;
 use Brackup::Chunker::Default;
 use Brackup::Chunker::MP3;
@@ -87,6 +88,21 @@ sub is_fifo {
     return S_ISFIFO($self->stat->mode);
 }
 
+sub is_chrdev {
+    my $self = shift;
+    return S_ISCHR($self->stat->mode);
+}
+
+sub is_blkdev {
+    my $self = shift;
+    return S_ISBLK($self->stat->mode);
+}
+
+sub is_sock {
+    my $self = shift;
+    return S_ISSOCK($self->stat->mode);
+}
+
 # Returns file type like find's -type
 sub type {
     my $self = shift;
@@ -94,6 +110,9 @@ sub type {
     return "d" if $self->is_dir;
     return "l" if $self->is_link;
     return "p" if $self->is_fifo;
+    return "b" if $self->is_blkdev;
+    return "c" if $self->is_chrdev;
+    return "s" if $self->is_sock;
     return "";
 }
 
@@ -189,6 +208,15 @@ sub link_target {
     return $self->{linktarget} = readlink($self->fullpath);
 }
 
+sub device_type {
+    my $self = shift;
+    return $self->{device_type} if $self->{device_type};
+    return undef unless $self->is_blkdev || $self->is_chrdev;
+	
+    my $rdev = $self->stat->rdev;
+    return $self->{device_type} = join(';', Unix::Mknod::major($rdev), Unix::Mknod::minor($rdev));
+}
+
 sub path {
     my $self = shift;
     return $self->{path};
@@ -202,7 +230,7 @@ sub as_string {
 
 sub mode {
     my $self = shift;
-    return sprintf('%#o', $self->stat->mode & 0777);
+    return sprintf('%#o', $self->stat->mode & 07777);
 }
 
 sub uid {
@@ -236,6 +264,9 @@ sub as_rfc822 {
         $set->("Type", $type);
         if ($self->is_link) {
             $set->("Link", printable($self->link_target));
+        }
+        elsif ($self->is_blkdev || $self->is_chrdev) {
+            $set->("Device", printable($self->device_type));
         }
     }
     $set->("Chunks", join("\n ", map { $_->to_meta } @$schunk_list));
