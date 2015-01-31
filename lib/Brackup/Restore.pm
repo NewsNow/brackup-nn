@@ -103,7 +103,7 @@ sub _restore_item {
     my $meta = shift;
     my $it = shift;
     
-    my $type = $it->{Type} || "f";
+    my $type = $it->{Type};
     my $path = unprintable($it->{Path});
     my $path_escaped = $it->{Path};
     my $path_escaped_stripped = $it->{Path};
@@ -201,7 +201,9 @@ sub restore {
     my (@dirs, @rest);
     my $files;
     while (my $it = $parser->readline) {
-        my $type = $it->{Type} || 'f';
+        $it->{Type} ||= 'f';
+	
+        my $type = $it->{Type};
         if($type eq 'f') {
             # find dig of first chunk
             ($it->{Chunks} || '') =~ /^(\S+)/;
