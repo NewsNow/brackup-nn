@@ -141,7 +141,6 @@ sub _restore_item {
     $it->{GID}  ||= $meta->{DefaultGID};
     
     warn " * restoring $path_escaped to $full_escaped\n" if $self->{verbose};
-    my $err;
     try {
         $self->_restore_link     ($full, $it) if $type eq "l";
         $self->_restore_directory($full, $it) if $type eq "d";
