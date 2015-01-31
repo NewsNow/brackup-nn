@@ -271,7 +271,8 @@ sub as_rfc822 {
     }
     $set->("Chunks", join("\n ", map { $_->to_meta } @$schunk_list));
 
-    # Record mtime even for links (which we can't restore), for restore --conflict update
+    # Record mtime even for links. We can restore symlink mtime if we have utimensat.
+    # In any case, we can use it for restore --conflict detection.
     $set->("Mtime", $st->mtime);
 
     unless ($self->is_link) {
