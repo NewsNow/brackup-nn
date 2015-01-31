@@ -37,10 +37,12 @@ sub new {
     $self->{root} = delete $opts{root};
     $self->{path} = delete $opts{path};
     $self->{stat} = delete $opts{stat};  # File::stat object
-    croak("Unknown options: " . join(', ', keys %opts)) if %opts;
 
-    die "No root object provided." unless $self->{root} && $self->{root}->isa("Brackup::Root");
+    die "No root object provided." unless ($self->{root} && $self->{root}->isa("Brackup::Root")) || (delete $opts{noroot});
     die "No path provided." unless defined($self->{path});  # note: permit "0"
+    
+    croak("Unknown options: " . join(', ', keys %opts)) if %opts;
+    
     $self->{path} =~ s!^\./!!;
 
     return $self;
@@ -55,9 +57,11 @@ sub root {
 sub stat {
     my $self = shift;
     return $self->{stat} if $self->{stat};
+    
     my $path = $self->fullpath;
     my $stat = File::stat::lstat($path)
       or croak "Failed to lstat '$path': $!";
+    
     return $self->{stat} = $stat;
 }
 
@@ -118,7 +122,11 @@ sub type {
 
 sub fullpath {
     my $self = shift;
-    return $self->{root}->path . "/" . $self->{path};
+    return $self->{root}->path . "/" . $self->{path} if defined $self->{root};
+    
+    # Allows Brackup::File to be used to query the type of arbitrary files,
+    # given just a path.    
+    return $self->{path};
 }
 
 # a scalar that hopefully uniquely represents a single version of a file in time.
