@@ -134,7 +134,7 @@ sub _restore_item {
         $self->__restore_file    ($full, $it) if $type eq "f";
         return undef                          if $type eq "s";
         
-        $self->_chown($full, $it, $type, $meta) if $it->{UID} || $it->{GID};
+        $self->_chown($full, $it, $type, $meta) if defined($it->{UID}) || defined($it->{GID});
         
     } catch {
         die $err unless $self->{onerror} eq 'continue';
