@@ -138,6 +138,8 @@ sub _restore_item {
         
     } catch {
         die $_ unless $self->{onerror} eq 'continue';
+         
+        warn $_;
         return $_;
     };
     
