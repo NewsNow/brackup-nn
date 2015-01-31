@@ -137,7 +137,7 @@ sub _restore_item {
         $self->_chown($full, $it, $type, $meta) if defined($it->{UID}) || defined($it->{GID});
         
     } catch {
-        die $err unless $self->{onerror} eq 'continue';
+        die $_ unless $self->{onerror} eq 'continue';
         return $_;
     };
     
