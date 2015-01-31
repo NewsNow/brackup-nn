@@ -469,7 +469,8 @@ sub default_directory_mode {
 
 sub _default_mode {
     my ($self, $type) = @_;
-    my $map = $self->{modecounts}{$type} || {};
+    # Provide a default, default mode of 0000 if none can be calculated.
+    my $map = $self->{modecounts}{$type} || { '0000' => 0 };
     return (sort { $map->{$b} <=> $map->{$a} } keys %$map)[0];
 }
 
