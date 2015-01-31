@@ -69,6 +69,15 @@ sub new {
         }
     }
 
+    if (! defined $self->{_utimensat}) {
+        no strict 'subs';
+        $self->{_utimensat} = eval { require Utimensat } && Utimensat::UTIMENSAT_AVAILABLE;
+
+        if(!$self->{_utimensat}) {
+            warn "Not restoring symlink access and modification (utimensat is not available)\n";
+        }         
+    }
+    
     $self->{metafile} = Brackup::DecryptedFile->new($self->{filename});
 
     # We start with 1 and only use more if one download/decrypt is successful
@@ -309,19 +318,34 @@ sub _chown {
 sub _update_statinfo {
     my ($self, $full, $it) = @_;
 
-    push @{ $self->{_stats_to_run} }, sub {
-        if (defined $it->{Mode}) {
-            chmod(oct $it->{Mode}, $full) or
-                die "Failed to change mode of $full: $!";
-        }
+    my $sub;
+    if( $self->{_utimensat} && defined($it->{Type}) && $it->{Type} eq 'l' && $full =~ m!^/!s ) {
 
-        if ($it->{Mtime} || $it->{Atime}) {
-            utime($it->{Atime} || $it->{Mtime},
-                  $it->{Mtime} || $it->{Atime},
-                  $full) or
-                die "Failed to change utime of $full: $!";
-        }
-    };
+        $sub = sub {
+            if (defined($it->{Mtime})) {
+                Utimensat::utimensat($it->{Atime} // $it->{Mtime}, $it->{Mtime}, 1, $full) || 
+                    die "Failed to change modification time of symlink $full: $!";
+            }
+        };
+    }
+    else {
+
+        $sub = sub {
+            if (defined $it->{Mode}) {
+                chmod(oct $it->{Mode}, $full) or
+                    die "Failed to change mode of $full: $!";
+            }
+
+            if ($it->{Mtime} || $it->{Atime}) {
+                utime($it->{Atime} || $it->{Mtime},
+                $it->{Mtime} || $it->{Atime},
+                $full) or
+                    die "Failed to change utime of $full: $!";
+            }
+        };
+    }
+    
+    push @{ $self->{_stats_to_run} }, $sub;
 }
 
 sub _exec_statinfo_updates {
