@@ -128,17 +128,26 @@ sub accept {
         $pattern =~ s{/$}{};
 
         foreach my $patternpart (split(m{/}, $pattern)){
-            $fileregexp .= '/' if $fileregexp;
-            $fileregexp .= quotemeta($patternpart);
+            my $p = quotemeta($patternpart);
 
             # Replace '*' in the pattern
-            my $plus = '[^/]+';
-            $fileregexp =~ s{^\\\*$}{$plus};
-            $fileregexp =~ s{^\\\*/}{$plus/};
-            $fileregexp =~ s{/\\\*$}{/$plus};
-            $fileregexp =~ s{/\\\*/}{/$plus/}g;
-            $fileregexp =~ s{\\\*}{[^/]*}g;
+            if($p eq "\\*"){
+              $p = '[^/]+';
+            }
+            else{
+              $p =~ s{\\\*}{[^/]*}g;
+            }
 
+            # Activate character classes in the pattern
+            $p =~ s{\\\[((?:\\\^)?\w[\w\\\-]*\w)\\\]}{do{
+               my $c = $1;
+               $c =~ s/^\\\^/^/;
+               $c =~ s/\\-/-/g;
+               '[' . $c . ']';
+            }}ge;
+
+            $fileregexp .= '/' if $fileregexp;
+            $fileregexp .= $p;
             push @parentregexps, '^' . $fileregexp . '/$';
         }
 
@@ -153,6 +162,8 @@ sub accept {
             'filepattern' => $fileregexp,
             'parents' => \@parentregexps
         };
+    }else{
+      print STDERR "Unrecognised pattern $pattern\n";
     }
 }
 
