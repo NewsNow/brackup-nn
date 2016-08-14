@@ -136,9 +136,9 @@ sub _restore_item {
     my $full_escaped = $self->{to} . "/" . $path_escaped_stripped;
     
     # restore default modes/user/group from header
-    $it->{Mode} ||= ($type eq 'd' ? $meta->{DefaultDirMode} : $meta->{DefaultFileMode});
-    $it->{UID}  ||= $meta->{DefaultUID};
-    $it->{GID}  ||= $meta->{DefaultGID};
+    $it->{Mode} //= ($type eq 'd' ? $meta->{DefaultDirMode} : $meta->{DefaultFileMode});
+    $it->{UID}  //= $meta->{DefaultUID};
+    $it->{GID}  //= $meta->{DefaultGID};
     
     warn " * restoring $path_escaped to $full_escaped\n" if $self->{verbose};
     try {
