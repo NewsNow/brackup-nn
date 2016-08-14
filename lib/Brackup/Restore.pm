@@ -61,7 +61,7 @@ sub new {
         
         if(!$self->{_lchown}) {
             if($self->{no_lchown}) {
-                warn "Not restoring symlink ownership (LChown is not available)\n";
+                warn "Not restoring symlink ownership (Lchown model is not available)\n";
             }
             else {
                 die "Cannot restore symlink ownership (no Lchown module) but --no-lchown option not given\n";
@@ -449,7 +449,7 @@ sub _restore_link {
 
     my $link = unprintable($it->{Link});
     symlink $link, $full or
-        die "Failed to link $full: $!";
+        die "Failed to link $full -> $link: $!";
     
     $self->_update_statinfo($full, $it);
 }
