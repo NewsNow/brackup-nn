@@ -439,7 +439,7 @@ sub _restore_directory {
 sub _restore_link {
     my ($self, $full, $it) = @_;
 
-    if (-e $full) {
+    if (-l $full) {
         return if $self->_can_skip($full, $it, 'Link');
 
         # Can't overwrite symlinks, so unlink explicitly if we're not skipping
