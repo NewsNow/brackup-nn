@@ -100,6 +100,11 @@ If the Lchown package is unavailable, an error will be displayed since
 it will not be possible to restore the ownership of symlinks. This option
 inhibits this error, turning it into a warning.
 
+=item --relative|-R
+
+Rather like rsync's --relative option, this causes files selected using
+--just to be restored with their full path relative to the destination root.
+
 =back
 
 =head1 WARRANTY
@@ -130,7 +135,7 @@ use lib "$Bin/lib";
 use Brackup;
 use Brackup::Util qw(tempfile);
 
-my ($opt_verbose, $meta_file, $opt_help, $restore_dir, $opt_all, $prefix, $config_file, $opt_daemons, $opt_numeric_ids, $opt_no_lchown);
+my ($opt_verbose, $meta_file, $opt_help, $restore_dir, $opt_all, $prefix, $config_file, $opt_daemons, $opt_numeric_ids, $opt_no_lchown, $opt_relative);
 my $onerror  = 'abort';
 my $conflict = 'abort';
 
@@ -147,7 +152,8 @@ usage() unless
                'config=s'           => \$config_file,
                'threads=s'          => \$opt_daemons,
                'numeric_ids|numeric-ids' => \$opt_numeric_ids,
-               'no-lchown'          => \$opt_no_lchown
+               'no-lchown'          => \$opt_no_lchown,
+               'relative|R'         => \$opt_relative
                );
 
 if ($opt_help) {
@@ -184,7 +190,8 @@ my $restore = Brackup::Restore->new(
                                     verbose     => $opt_verbose,
                                     daemons     => $opt_daemons,
                                     numeric_ids => $opt_numeric_ids,
-                                    no_lchown   => $opt_no_lchown
+                                    no_lchown   => $opt_no_lchown,
+                                    relative    => $opt_relative
                                     );
 
 try {

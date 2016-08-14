@@ -47,12 +47,16 @@ sub new {
     $self->{_local_gid_map} = {};  # remote/metafile gid -> local gid
 
     $self->{no_lchown} = delete $opts{no_lchown};
-    
+    $self->{relative} = delete $opts{relative};
+
     $self->{prefix} =~ s/\/$// if $self->{prefix};
 
     $self->{_stats_to_run} = [];  # stack (push/pop) of subrefs to reset stat info on
 
     die "Destination directory doesn't exist" unless $self->{to} && -d $self->{to};
+
+    $self->{to} =~ s/\/$// if $self->{to};
+
     croak("Unknown options: " . join(', ', keys %opts)) if %opts;
     
     if (! defined $self->{_lchown}) {
@@ -110,25 +114,32 @@ sub _restore_item {
     die "Unknown filetype: type=$type, file: $path_escaped" unless $type =~ /^[ldfpbcs]$/;
     
     if ($self->{prefix}) {
-         
-        # Skip unless path is prefix or begins with prefix/
-        return undef unless $path =~ m/^\Q$self->{prefix}\E(?:\/|$)/;
-        
-        ###
-        # Translate source $path into destination path $full (and $full_escaped, for printing).
-         
-        # If non-directory, and $path begins with prefix or prefix/, then strip all but last component.
-        if ($type ne 'd' && $path =~ m/^\Q$self->{prefix}\E\/?$/) {
-            if (my ($leading_prefix) = ($self->{prefix} =~ m/^(.*\/)[^\/]+\/?$/)) {
-                $path =~ s/^\Q$leading_prefix\E//;
-                $path_escaped_stripped =~ s/^\Q$leading_prefix\E//;
-            }
+
+        if($self->{relative}) {
+            # Skip unless prefix is path, or begins with path/
+            return undef unless $self->{prefix} =~ m/^\Q$path\E(?:\/|$)/;
         }
-         
-        # If directory, strip prefix or prefix/
         else {
-            $path =~ s/^\Q$self->{prefix}\E\/?//;
-            $path_escaped_stripped =~ s/^\Q$self->{prefix}\E\/?//;
+
+            # Skip unless path is prefix or begins with prefix/
+            return undef unless $path =~ m/^\Q$self->{prefix}\E(?:\/|$)/;
+
+            ###
+            # Translate source $path into destination path $full (and $full_escaped, for printing).
+         
+            # If non-directory, and $path begins with prefix or prefix/, then strip all but last component.
+            if ($type ne 'd' && $path =~ m/^\Q$self->{prefix}\E\/?$/) {
+                if (my ($leading_prefix) = ($self->{prefix} =~ m/^(.*\/)[^\/]+\/?$/)) {
+                    $path =~ s/^\Q$leading_prefix\E//;
+                    $path_escaped_stripped =~ s/^\Q$leading_prefix\E//;
+                }
+            }
+         
+            # If directory, strip prefix or prefix/
+            else {
+                $path =~ s/^\Q$self->{prefix}\E\/?//;
+                $path_escaped_stripped =~ s/^\Q$self->{prefix}\E\/?//;
+            }
         }
     }
     
