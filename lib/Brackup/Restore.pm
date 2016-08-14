@@ -208,6 +208,7 @@ sub restore {
             # find dig of first chunk
             ($it->{Chunks} || '') =~ /^(\S+)/;
             my ($offset, $len, $enc_len, $dig) = split(/;/, $1 || '');
+            if(!defined $dig && defined($it->{Size}) && $it->{Size} != 0) { printf STDERR "WARNING: No digest for non-zero length file %s\n", $it->{'Path'}; }
             $dig ||= '';
             $it->{fst_dig} = $dig;
             push @{$files->{$dig}}, $it;
