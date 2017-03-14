@@ -83,8 +83,9 @@ sub _md5 {
     my $md5 = Digest::MD5->new();
     $$args{value}->seek(0,0);
     my $fh = $$args{value};
-    while(<$fh>) {
-        $md5->add($_);
+    my $buf;
+    while($fh->read($buf, 1024*1024)) {
+        $md5->add($buf);
     }
     $$args{value}->seek(0,0);
     return $md5->digest;
