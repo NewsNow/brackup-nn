@@ -380,11 +380,14 @@ sub backup {
     } # end while
 
     # If using daemonised storage, ensure all chunks are stored and added to the inventory
+    $self->debug("Waiting for kids");
     $target->wait_for_kids();
 
+    $self->debug("Ending file (including file digest)");
     $end_file->();
 
     $comp_chunk->finalize if $comp_chunk;
+    $self->debug("Waiting for kids");
     $target->wait_for_kids(); # finalize() calls store_chunk, so need to wait again
 
     $stats->timestamp('Chunk Storage');
