@@ -83,8 +83,9 @@ sub _md5 {
     my $md5 = Digest::MD5->new();
     $$args{value}->seek(0,0);
     my $fh = $$args{value};
-    while(<$fh>) {
-        $md5->add($_);
+    my $buf;
+    while($fh->read($buf, 1024*1024)) {
+        $md5->add($buf);
     }
     $$args{value}->seek(0,0);
     return $md5->digest;
@@ -319,7 +320,7 @@ sub _put {
         # transient failure?
          
           if(++$n_fails < $retries) {
-              my $tosleep = $n_fails > 5 ? ( $n_fails > 10 ? 300 : 30 ) : 5;
+              my $tosleep = $n_fails > 5 ? ( $n_fails > 10 ? 20 : 10 ) : 5;
               warn "Error uploading chunk [$@] ... will do retry \#$n_fails in $tosleep seconds ...\n";
               sleep $tosleep;
           }
