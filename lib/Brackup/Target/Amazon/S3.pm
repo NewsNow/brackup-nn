@@ -319,7 +319,7 @@ sub _put {
         # transient failure?
          
           if(++$n_fails < $retries) {
-              my $tosleep = $n_fails > 5 ? ( $n_fails > 10 ? 300 : 30 ) : 5;
+              my $tosleep = $n_fails > 5 ? ( $n_fails > 10 ? 20 : 10 ) : 5;
               warn "Error uploading chunk [$@] ... will do retry \#$n_fails in $tosleep seconds ...\n";
               sleep $tosleep;
           }
