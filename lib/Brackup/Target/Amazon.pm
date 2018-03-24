@@ -78,8 +78,9 @@ sub _common_s3_init {
         aws_access_key_id     => $self->{access_key_id},
         aws_secret_access_key => $self->{sec_access_key_id},
         retry                 => 1,
-        secure                => 1
-    });
+        secure                => 1,
+        host                  => $self->{location} ? ($self->{location} eq 'EU' ? 's3-eu-west-1.amazonaws.com' : "s3-$self->{location}.amazonaws.com") : 's3.amazonaws.com'
+    });    
     $self->{s3c} = Brackup::Target::Amazon::S3->new(
          's3c' => Net::Amazon::S3::Client->new( s3 => $self->{s3} ),
          'multipart_threshold' => $self->{multipart_threshold},
