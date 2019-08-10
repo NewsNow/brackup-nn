@@ -1,2 +1,6 @@
 image:
   file: .gitpod.dockerfile
+
+vscode:
+  extensions:
+    - richterger.perl@0.9.0:imMaU1YTjSDdgbewOfuSaw==
