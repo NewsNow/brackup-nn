@@ -26,15 +26,18 @@ sub chunks {
     my $size       = $file->size;
 
     my $offset = 0;
+    my $count = 0;
     while ($offset < $size) {
         my $len = _min($chunk_size, $size - $offset);
         my $chunk = Brackup::PositionedChunk->new(
                                                   file   => $file,
                                                   offset => $offset,
                                                   length => $len,
+                                                  count  => $count
                                                   );
         push @chunk_list, $chunk;
         $offset += $len;
+        $count++;
     }
     return @chunk_list;
 }

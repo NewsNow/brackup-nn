@@ -195,14 +195,20 @@ sub _calc_full_digest {
     }
 
     unless ($dig) {
-        my $sha1 = Digest::SHA1->new;
-        my $path = $self->fullpath;
-        sysopen(my $fh, $path, O_RDONLY) or die "[SKIP_FILE] Failed to open $path: $!";
-        binmode($fh);
-        $sha1->addfile($fh);
-        close($fh);
-
-        $dig = "sha1:" . $sha1->hexdigest;
+        # If we still have a file digest, and the file size matches the last chunk offset, use the digest.
+        if($self->{_digest_sha1} && $self->size == $self->{_digest_sha1_chunk}{offset} + $self->{_digest_sha1_chunk}{length}) {
+            $dig = 'sha1:' . $self->{_digest_sha1}->hexdigest;
+        }
+        else {
+            my $sha1 = Digest::SHA1->new;
+            my $path = $self->fullpath;
+            sysopen(my $fh, $path, O_RDONLY) or die "[SKIP_FILE] Failed to open $path: $!";
+            binmode($fh);
+            $sha1->addfile($fh);
+            close($fh);
+    
+            $dig = "sha1:" . $sha1->hexdigest;
+        }
     }
 
     $cache->set($key => $dig);

@@ -28,6 +28,7 @@ use fields (
             'file',     # the Brackup::File object
             'offset',   # offset within said file
             'length',   # length of data
+            'count',
             '_raw_digest',
             '_raw_chunkref',
             );
@@ -36,9 +37,10 @@ sub new {
     my ($class, %opts) = @_;
     my $self = ref $class ? $class : fields::new($class);
 
-    $self->{file}   = delete $opts{'file'};    # Brackup::File object
+    $self->{file}   = delete $opts{'file'};    # Brackup::File object # FIXME: Weaken this ref!
     $self->{offset} = delete $opts{'offset'};
     $self->{length} = delete $opts{'length'};
+    $self->{count} = delete $opts{'count'};
 
     croak("Unknown options: " . join(', ', keys %opts)) if %opts;
     croak("offset not numeric") unless $self->{offset} =~ /^\d+$/;
@@ -48,7 +50,7 @@ sub new {
 
 sub as_string {
     my $self = shift;
-    return $self->{file}->as_string . "{off=$self->{offset},len=$self->{length}}";
+    return $self->{file}->as_string . "{cnt=$self->{count},off=$self->{offset},len=$self->{length}}";
 }
 
 # the original length, pre-encryption
@@ -102,10 +104,24 @@ sub _calc_raw_digest {
         return $self->{_raw_digest} = $dig;
     }
 
-    $dig = "sha1:" . io_sha1($self->raw_chunkref);
+    # Start calculating file digest only if we're on the first chunk, and we haven't somehow already started.
+    if(!defined($self->{file}{_digest_sha1}) && $self->{'offset'} == 0) {
+        $self->{file}{_digest_sha1} = Digest::SHA1->new;
+    }
+    # But if the current chunk offset doesn't start where the last one ended, abort.
+    elsif( $self->{offset} != $self->{file}{_digest_sha1_chunk}{offset} + $self->{file}{_digest_sha1_chunk}{length} ) {
+        delete $self->{file}{_digest_sha1};
+    }
 
+    # Update the file chunk offset and length. We won't use it unless $self->{file}{_digest_sha1} is still available.
+    $self->{file}{_digest_sha1_chunk} = { 'offset' => $self->{'offset'}, 'length' => $self->{'length'} };
+    # $self->{file}{_digest_sha1_chunk} = { 'offset' => $self->{'offset'}, 'length' => $self->{'length'}, 'count' => $self->{'count'} };
+    
+    # Calculate chunk sha1, and file sha1 at the same time.
+    $dig = "sha1:" . io_sha1($self->raw_chunkref, $self->{file}{_digest_sha1});
+    
     $cache->set($key => $dig);
-
+    
     return $self->{_raw_digest} = $dig;
 }
 

@@ -141,13 +141,14 @@ sub io_print_to_fh {
 
 # computes sha1 of data in an IO::Handle
 sub io_sha1 {
-    my ($io_handle) = @_;
+    my ($io_handle, $file_digest_sha1) = @_;
 
     my $sha1 = Digest::SHA1->new;
     my $buf;
 
     while($io_handle->read($buf, 4096)) {
         $sha1->add($buf);
+        $file_digest_sha1->add($buf) if defined($file_digest_sha1);
     }
 
     return $sha1->hexdigest;
