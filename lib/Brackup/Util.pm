@@ -146,7 +146,7 @@ sub io_sha1 {
     my $sha1 = Digest::SHA1->new;
     my $buf;
 
-    while($io_handle->read($buf, 4096)) {
+    while($io_handle->read($buf, 67108864)) {
         $sha1->add($buf);
         $file_digest_sha1->add($buf) if defined($file_digest_sha1);
     }
